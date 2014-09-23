@@ -1,0 +1,17 @@
+cache/*
+figure/*
+Submissions/*
+Datasets/*
+*.csv
+*.rda
+*.bbl
+*.aux
+*.blg
+*.sty
+*.tag
+*.log
+*.pdf
+*.gz
+.Rproj.user
+.Rhistory
+.RData
