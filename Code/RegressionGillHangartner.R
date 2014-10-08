@@ -11,18 +11,22 @@ source("Code/vonMises.R")
 linkfun <- function(x) 2 * atan(x)
 
 # Cov-matrix
-estCovMat <- function(X, Gsq, g) {
+estCovMat <- function(X, bt, kp, linkfun) {
+  g      <- linkfun(apply(X, 1, "%*%", bt))
+  G      <- diag(g)
+  Gsq    <- G %*% G
   nc     <- 1 / (kp * A1(kp))
   pt1    <- solve(t(X) %*% Gsq %*% X)
   pt2num <- pt1 %*% t(X) %*% g %*% t(g) %*% X %*% pt1
   pt2den <- n - (t(g) %*% X  %*% pt1  %*% t(X) %*% g)
 
-  nc * (pt1 + pt2num %*% solve(pt2den))
+  nc * (pt1 + pt2num / as.numeric(pt2den))
 }
 
 
 # Data generation
-th <- rvmc(n, mu, kp)
+n <- 30
+th <- rvmc(n, mu = 2, kp = 5)
 X  <- matrix(2*tan(th) + rnorm(n))
 
 # Data summary statistics
@@ -32,10 +36,10 @@ mu_hat <- meanDir(th)
 # Settings for sampler
 mu_start <- 2
 kp_start <- 1
-bt_start <- 0
+bt_start <- 0.1
 tau_mu <- 1
 tau_bt <- 1
-Q <- 100
+Q <- 20
 p <- length(bt_start)
 
 # Empty matrices and initialization.
@@ -60,17 +64,24 @@ llfun <- buildLogLikfun(th, X, linkfun)
 
 for(it in 2:Q) {
 
-  mu_tilde <- rvmc(1, mu_cur, kp_cur)
+  # linkxbeta is what the set of covariates adds in terms of predicted angle.
+  linkxbeta <- linkfun(apply(X, 1, "%*%", bt[itm ]))
 
-  bt_tilde <-
+  # New properties
+  S_fromBeta <- sum(sin(th - linkxbeta))
+  C_fromBeta <- sum(cos(th - linkxbeta))
+  R_fromBeta <- sqrt(C_fromBeta^2 + S_fromBeta^2)
 
-  kp_tilde <-
+  # Generate a new value for mu.
+  mu_can <- rvmc(1, mu_cur, R_fromBeta*kp_cur)
 
-  rho <- min(1, llfun(mu_tilde, kp_tilde, bt_tilde) / llfun(mu[it-1], kp[it-1], bt[it-1, ]))
+
+  estCov_cur   <- estCovMat(X = X, bt = bt_cur, kp = kp_cur, linkfun = linkfun)
+  bt_can     <- mvrnorm(n = 1, mu = bt_cur, Sigma = estCov_cur)
+
+
+#   kp_can     <-
+
+  rho <- min(1, llfun(mu_can, kp_can, bt_can) / llfun(mu[it-1], kp[it-1], bt[it-1, ]))
 }
-
-
-
-
-
 
