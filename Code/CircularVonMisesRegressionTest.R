@@ -8,7 +8,9 @@ source("Code/describeCirc.R")
 source("Code/vonMises.R")
 
 # Link function
-linkfun <- function(x) 2 * atan(x)
+linkfun    <- function(x) 2 * atan(x)
+invlinkfun <- function(x) tan(x/2)
+
 
 # Cov-matrix
 estCovMat <- function(X, bt, kp, linkfun, linkxbeta = apply(X, 1, "%*%", bt)) {
@@ -35,10 +37,8 @@ mu_hat <- meanDir(th)
 
 # Settings for sampler
 mu_start <- mu_hat
-kp_start <- 100
-bt_start <- 10
-tau_mu <- 1
-tau_bt <- 1
+kp_start <- 1
+bt_start <- .0025
 Q <- 1000
 p <- length(bt_start)
 
@@ -46,6 +46,7 @@ p <- length(bt_start)
 mu <- c(mu_start, rep(NA, Q-1))
 kp <- c(kp_start, rep(NA, Q-1))
 bt <- rbind(bt_start, matrix(nc=p, nr=Q-1))
+row.names(bt) <- NULL
 mu_cur <- mu[1]
 kp_cur <- kp[1]
 bt_cur <- bt[1, ]
@@ -76,20 +77,21 @@ for(it in 2:Q) {
 
   # Generate a new value for mu.
   ### TODO: Mathematically prove this to be equal to the ll:
-#   plot(circSeq, sapply(circSeq, function(x)
-       # exp(llfun(x, kp=kp_cur, bt=bt[it-1, , drop=FALSE]))), xlim=c(-0.5, 7), type="l")
-  mu_cur <- rvmc(1, mu_fromBeta, R_fromBeta*kp_cur)
-
+# Plots showing that this is true:
 #   plot(xlim=c(-0.5, 7),
 #        function(x) dvm(x, mu=mu_fromBeta, kappa = R_fromBeta*kp_cur))
-#
 #   plot(xlim=c(-0.5, 7), type="l",
 #        circSeq,
-#        sapply(circSeq, function(x) exp(llfun(x, kp=kp_cur, bt=bt[it-1, , drop=FALSE]))))
-#
+#        sapply(circSeq, function(x) exp(llfun(x, kp=kp_cur, bt=bt_cur))))
+
+  if (is.na(mu_fromBeta) | kp_cur<1e-20) stop(paste("NA mu at it", it))
+  mu_cur <- rvmc(1, mu_fromBeta, R_fromBeta*kp_cur)
+
+  print(1)
+  printVars(bt_cur, kp_cur, mu_cur, mu_fromBeta)
 
   estCov_cur <- estCovMat(X = X, bt = bt_cur, kp = kp_cur,
-                          linkfun = linkfun, linkxbeta = linkxbeta)
+                          linkfun = invlinkfun, linkxbeta = linkxbeta)
   bt_can     <- mvtnorm::rmvnorm(n = 1, mean = bt_cur, sigma = estCov_cur)
 
   bt_lratio <- llfun(mu = mu_cur, kp = kp_cur, bt = bt_can) +
@@ -101,7 +103,8 @@ for(it in 2:Q) {
     bt_cur <- bt_can
   }
 
-
+  print(2)
+  printVars(bt_cur, bt_can, kp_cur, estCov_cur, mu_fromBeta)
 
   ### KAPPA
   kp_can     <- rchisq(1, df = kp_cur)
@@ -116,17 +119,21 @@ for(it in 2:Q) {
     kp_cur <- kp_can
   }
 
+  print(3)
+  printVars(bt_cur, bt_can, kp_cur, kp_can, estCov_cur, mu_fromBeta)
 
-#   lim <- c(-0.05, 0.4)
+#   lim <- c(-0.05, 12.4)
 #   sq  <- seq(lim[1], lim[2], length.out = 2000)
-#
+
+# # Likelihood
 #   plot(xlim=lim, type="l",
 #         sq,
 #         sapply(sq, function(x) exp(llfun(mu_cur, kp=kp_cur, bt=x))) )
-#  plot(xlim=lim, type="l",
+# # Proposal
+#   plot(xlim=lim, type="l",
 #         sq,
 #         sapply(sq, function(x) dnorm(x, mean = bt_cur, sd = estCov_cur)))
-
+#
 
 
   mu[it]   <- mu_cur
@@ -134,7 +141,8 @@ for(it in 2:Q) {
   bt[it, ] <- bt_cur
 
 #   rho <- min(1, llfun(mu_can, kp_can, bt_can) / llfun(mu[it-1], kp[it-1], bt[it-1, ]))
-it <- it+1
+
+# it <- it+1
 
 }
 
