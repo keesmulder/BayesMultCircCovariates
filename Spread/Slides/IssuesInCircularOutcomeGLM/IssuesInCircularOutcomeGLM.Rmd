@@ -1,0 +1,355 @@
+---
+title: "Issues in Bayesian Circular GLM"
+author: "Kees Mulder"
+date: "november 2014"
+output:
+  ioslides_presentation:
+    fig_height: 5.5
+    fig_width: 8
+    smaller: no
+---
+
+
+```{r include=FALSE, cache=FALSE, warning=FALSE}
+ 
+library(knitr)
+library(Rcpp)
+library(circular)
+library(mvtnorm)
+library(ggplot2)
+library(rootSolve)
+
+setwd("C:/Dropbox/Research/BayesMultCircCovariates")
+sourceCpp("Code/rvmc.cpp")
+source("Code/describeCirc.R")
+source("Code/vonMises.R")
+source('Code/CircularVonMisesRegressionTest.R')
+
+# set global chunk options
+opts_chunk$set(fig.path='figure/', fig.align='center', fig.show='hold', warning=FALSE, message=FALSE)
+options(formatR.arrow=TRUE,width=90)
+
+# ggplot theme to be used
+plotTheme <- theme(
+  panel.grid.major = element_line(
+    colour = "white",
+    linetype = "solid"),
+  panel.grid.minor = element_blank(),
+  axis.ticks = element_line(
+    colour = "black"
+    ),
+  title = element_text(
+    size = rel(1.3),
+    face = "bold")
+  )
+
+makeProp <-function(x) (x-min(x))/(max(x)-min(x))
+
+# Link functions
+linkfun    <- function(x) 2 * atan(x)
+invlinkfun <- function(x) tan(x/2)
+
+
+generateBetaShapePlotGivenData <- function(th, X, b0_cur, xl = c(-8, 8), add=1.5) {
+  
+  par(mfrow=c(2, 2))
+  
+  # Show generated data
+  xh <- makeProp(X)
+  
+  plotCircular(th)
+  plot(X, th, ylim=c(0, 2*pi))
+  
+  # Main part of the loglikelihood function.
+  Rllfun <- function(bt) sum(cos(th - b0_cur - linkfun(apply(X, 1, "%*%", bt))))
+  
+  llmax <- optimize(f = function(x) Rllfun(x), interval = xl, maximum = TRUE)$maximum
+  llmin <- optimize(f = function(x) Rllfun(x), interval = xl, maximum = FALSE)$minimum
+  
+  b0s <- c(b0_cur, b0_cur, b0_cur, b0_cur)
+  bts <- c(llmin, llmax, -5, 5)
+  
+  # Plot likelihood of beta at true mean and true kp, and add the extrema.
+  plot(Vectorize(function(x) Rllfun(x)), xlim=xl, main=paste("Shape of LogLik(Beta) when Beta_0 =", round(b0_cur, 2)), xlab=expression(beta), ylab="Log-Likelihood")
+  abline(v=bts, col=2:(length(bts)+1), lwd=2.5)
+  
+  
+  shift <- function(th, shift) ((th + shift) %% (2*pi)) - shift
+  
+  dif <- pi - b0_cur
+  
+  sth <- shift(th, dif)
+  
+  underth <- sth < (add - dif)
+  overth  <- sth > (2*pi-(add+dif))
+  
+  dth <- c(sth[underth] + (2*pi), sth, sth[overth] - (2*pi))
+  dX  <- c(X[underth, ], as.vector(X), X[overth, ])
+  
+  # Plot predictions for different beta's
+  plot(dX, dth, xlim=c(min(X), max(X)), ylim = b0_cur + c(-(pi+add), pi+add),
+       main=paste("Given current beta_0 =", round(b0_cur, 2)),
+       ylab="Theta/Predicted Theta (Shifted)", xlab="X")
+  abline(h=b0_cur + c(-pi, pi), col="grey60", lty = 3, lwd=3)
+  
+  for (i in seq(b0s)) {
+    estth <- function(x) shift(b0s[i] + linkfun(bts[i]*x), dif)
+    curve(estth, add=TRUE, col=i+1, lwd=2.5)
+    }
+  abline(h=b0_cur, col="purple", lty = 2)
+  
+  par(mfrow=c(1, 1))
+  }
+
+
+
+
+generateBetaShapePlot <- function(b0_cur = pi, true_b0 = pi, true_bt = 1, true_kp = 20, Xsd=4, n = 100, xl = c(-8, 8), add=1.5) {
+  
+  # Data generation
+  X       <- matrix(rnorm(n, sd=Xsd))
+  err     <- rvmc(n, mu = 0, kp = true_kp)
+  th      <- (true_b0 + linkfun(true_bt * X) + err) %% (2*pi)
+  
+  par(mfrow=c(2, 2))
+  
+  # Show generated data
+  xh <- makeProp(X)
+  
+  plotCircular(th)
+  plot(X, th, main = paste0("True: beta_0=", round(true_b0, 2), ", beta=", round(true_bt, 2), ", kappa=", round(true_kp, 2)), ylim=c(0, 2*pi))
+  
+  # Main part of the loglikelihood function.
+  Rllfun <- function(bt) sum(cos(th - b0_cur - linkfun(apply(X, 1, "%*%", bt))))
+  
+  llmax <- optimize(f = function(x) Rllfun(x), interval = xl, maximum = TRUE)$maximum
+  llmin <- optimize(f = function(x) Rllfun(x), interval = xl, maximum = FALSE)$minimum
+  
+  b0s <- c(b0_cur, b0_cur, b0_cur, b0_cur)
+  bts <- c(llmin, llmax, -5, 5)
+  
+  # Plot likelihood of beta at true mean and true kp, and add the extrema.
+  plot(Vectorize(function(x) Rllfun(x)), xlim=xl, main=paste("Shape of Log-Likelihood of Beta when Beta_0 =", round(b0_cur, 2)), xlab=expression(beta), ylab="Log-Likelihood")
+  abline(v=bts, col=2:(length(bts)+1), lwd=2.5)
+  
+  
+  shift <- function(th, shift) ((th + shift) %% (2*pi)) - shift
+  
+  dif <- pi - b0_cur
+  
+  sth <- shift(th, dif)
+  
+  underth <- sth < (add - dif)
+  overth  <- sth > (2*pi-(add+dif))
+  
+  dth <- c(sth[underth] + (2*pi), sth, sth[overth] - (2*pi))
+  dX  <- c(X[underth, ], as.vector(X), X[overth, ])
+  
+  # Plot predictions for different beta's
+  plot(dX, dth, xlim=c(min(X), max(X)), ylim = b0_cur + c(-(pi+add), pi+add),
+       main=paste("Given current beta_0 =", round(b0_cur, 2)),
+       ylab="Theta/Predicted Theta (Shifted)", xlab="X")
+  abline(h=b0_cur + c(-pi, pi), col="grey60", lty = 3, lwd=3)
+  
+  for (i in seq(b0s)) {
+    estth <- function(x) shift(b0s[i] + linkfun(bts[i]*x), dif)
+    curve(estth, add=TRUE, col=i+1, lwd=2.5)
+    }
+  abline(h=b0_cur, col="purple", lty = 2)
+  
+  par(mfrow=c(1, 1))
+  }
+
+
+
+plot3DLikelihood <- function (n, true_b0, true_bt, true_kp, loglik=TRUE,
+                              bt0lim = c(0, 2*pi), bt1lim = c(-10, 10), res=10) {
+  
+  # Link functions
+  linkfun    <- function(x) 2 * atan(x)
+  invlinkfun <- function(x) tan(x/2)
+  
+  X       <- cbind(runif(n, -1, 1))
+  err     <- rvmc(n, mu = 0, kp = true_kp)
+  th      <- (true_b0 + linkfun(apply(X, 1, "%*%", true_bt)) + err) %% (2*pi)
+  
+  # Log-likelihood for this dataset and link function.
+  llfun <- buildLogLikfun(th, X, linkfun)
+  
+  b0s   <- seq(bt0lim[1], bt0lim[2], length = res)
+  bt1   <- seq(bt1lim[1], bt1lim[2], length = res)
+  if(loglik)   f <- Vectorize(function(x, y) llfun(x, true_kp, y))
+  if(!loglik)  f <- Vectorize(function(x, y) exp(llfun(x, true_kp, y)))
+  z <- outer(b0s, bt1, f)
+  op <- par(bg = "white")
+  
+  # 3D-plot
+  persp(b0s, bt1, z, theta = 50, phi = 40, expand = 0.4, col = "lightblue",
+        ltheta = 120, shade = 0.75, ticktype = "detailed",
+        xlab = "Beta_0", ylab = "Beta_1", zlab = "Density")
+  
+  }
+
+
+```
+
+
+## Circular regression
+
+- Dependent variable: Circular, say $\theta \in [0, 2 \pi)$.
+- Independent variable: linear, say $X$.
+
+- Predict the outcome $\theta_i$ by 
+$$\hat\theta_i = \beta_0 + g(\beta_1 x_{1i} + \dots + \beta_K x_{Ki})$$
+which uses a set of $K$ linear predictors.
+
+- $g(x)$ is the link function, as in GLM, which places the prediction on the circle. For a circular outcome, we usually choose
+
+$$g(x) = 2 \tan^{-1}(x).$$
+
+## Link function
+
+```{r echo=FALSE}
+library(ggplot2)
+# Link functions
+linkfun    <- function(x) 2 * atan(x)
+invlinkfun <- function(x) tan(x/2)
+
+xl <- c(-20, 20)
+yl <- c(-pi, pi)
+ggplot(data.frame(x = xl), aes(x)) +
+  stat_function(fun = linkfun, size=1) +
+  scale_x_continuous(breaks=seq(xl[1], xl[2], length.out = 11)) +
+  xlab("x") + ylab(expression(paste(g(x),"=", 2, tan^-1, (x)))) +
+  scale_y_continuous(breaks=round(seq(yl[1], yl[2], length.out = 7))) + plotTheme
+``` 
+
+## Data example
+
+```{r echo=FALSE, cache=TRUE}
+# Properties of the data.
+n       <-  100
+true_b0 <-  pi
+true_bt <-  0.2
+true_kp <-  20
+xl = c(-8, 8)
+
+# Link functions
+linkfun    <- function(x) 2 * atan(x)
+invlinkfun <- function(x) tan(x/2)
+
+set.seed(7)
+X       <- cbind(runif(n, -1, 1))
+err     <- rvmc(n, mu = 0, kp = true_kp)
+th      <- (true_b0 + linkfun(apply(X, 1, "%*%", true_bt)) + err) %% (2*pi)
+
+qplot(X, th) + plotTheme
+```
+
+## Joint Likelihood $\beta_0$ (intercept) and $\beta_1$ (coefficient).
+
+```{r echo=FALSE, cache=TRUE}
+set.seed(7)
+plot3DLikelihood(n, true_b0 = true_b0, true_bt = true_bt, true_kp = true_kp,
+                 loglik=FALSE, res = 60,
+                 bt0lim=c(pi-0.5, pi+0.5), bt1lim=c(0.2-0.5, 0.2+0.5))
+
+```
+
+## Log-likelihood
+
+
+```{r echo=FALSE, cache=TRUE}
+set.seed(7)
+plot3DLikelihood(n, true_b0 = true_b0, true_bt = true_bt, true_kp = true_kp,
+                 loglik=TRUE, res = 60,
+                 bt0lim=c(pi-5, pi+5), bt1lim=c(0.2-5, 0.2+5))
+
+```
+
+# Conditional likelihood
+
+## $\beta_0$ roughly correct
+```{r echo = FALSE}
+
+
+set.seed(7)
+th <- c(0.2, 0.2, pi-2, pi-1, pi, pi+1, pi+2, 2*pi-0.2, 2*pi-0.2)+0.01
+X <- matrix((-4):4, nc=1)
+
+par(mfrow=c(2, 2))
+
+generateBetaShapePlotGivenData(th, X, pi)
+
+```
+
+
+
+## $\beta_0$ slightly off
+```{r echo = FALSE}
+
+set.seed(7)
+generateBetaShapePlotGivenData(th, X, 4.8)
+
+```
+
+## $\beta_0$ completely wrong
+```{r echo = FALSE}
+
+set.seed(7)
+generateBetaShapePlotGivenData(th, X, 2*pi)
+
+```
+
+
+
+
+## $\beta_0$ roughly correct
+```{r echo = FALSE}
+set.seed(7)
+generateBetaShapePlot(true_b0 = 3, true_bt = 0.05, true_kp = 10, b0_cur =  3)
+```
+
+## $\beta_0$ slightly off
+```{r echo = FALSE}
+set.seed(7)
+generateBetaShapePlot(true_b0 = 3, true_bt = 0.05, true_kp = 10, b0_cur =  4)
+```
+
+## $\beta_0$ completely wrong
+```{r echo = FALSE}
+set.seed(7)
+generateBetaShapePlot(true_b0 = 3, true_bt = 0.05, true_kp = 10, b0_cur =  3+pi)
+```
+
+## $\beta_0$ roughly correct
+```{r echo = FALSE}
+set.seed(7)
+generateBetaShapePlot(true_b0 = 3, true_bt = 0.5, true_kp = 4, b0_cur =  3)
+```
+
+## $\beta_0$ slightly off
+```{r echo = FALSE}
+set.seed(7)
+generateBetaShapePlot(true_b0 = 3, true_bt = 0.5, true_kp = 4, b0_cur =  4)
+```
+
+## $\beta_0$ completely wrong
+```{r echo = FALSE}
+set.seed(7)
+generateBetaShapePlot(true_b0 = 3, true_bt = 0.5, true_kp = 4, b0_cur =  3+pi)
+```
+
+
+## Possible solutions
+
+Possible solutions for this problem:
+
+- Choose a prior, such that high values for $\beta$ are very unlikely, or in such a way that the posterior for $\beta$ can be proven to be globally concave.
+- Choose a different link function, for example $g(x) = 1.5 \tan^{-1} (x)$.
+- Choose roughly correct starting values for each $\beta$ by some procedure.
+- Ignore the problem, expect that it does not happen in practice.
+
+
+
+

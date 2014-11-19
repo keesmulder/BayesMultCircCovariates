@@ -163,7 +163,7 @@ summaryCirc <- function (th, type = "radians", plot = FALSE) {
 # Returns:    A vector of length 4 containing the cosine and sine moments, as well as the
 #             mean direction and mean resultant length.
 plotCircular <- function(th, alpha = 0.35, inputtype = "radians",
-                         outputtype = "radians", plotMean = TRUE, plotMoments = 0) {
+                         outputtype = "radians", plotMean = TRUE, plotMoments = 0, col = rgb(0,0,0, alpha)) {
 
   if (!require(plotrix)) stop("\n Package 'plotrix' must be installed! \n")
 
@@ -182,7 +182,7 @@ plotCircular <- function(th, alpha = 0.35, inputtype = "radians",
   segments(0,0, 1.05, 0, col = "gray")
 
   # Plot the points
-  points(cbind(cos(th)), sin(th), pch = 16, col = rgb(0,0,0, alpha), cex = 1.3)
+  points(cbind(cos(th)), sin(th), pch = 16, cex = 1.3, col=col)
 
   # Plot the mean
   if (plotMean) {
