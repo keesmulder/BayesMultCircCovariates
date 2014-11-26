@@ -10,35 +10,39 @@ library(circular)
 linkfun    <- function(x, c=2) c * atan(x)
 invlinkfun <- function(x, c=2) tan(x/c)
 
+# method: The method of analysis
+# dpar: Arguments to be passed to the data generation method.
+# mpar: Arguments to be passed to the data analysis method.
+runCircGLM <- function(method=mcmcGCM, dpar, mpar) {
 
-runCircGLM <- function(d, method, ...) {
-  plot(circular(d[,1]))
+  # Generate data
+  d <- do.call(generateCircGLMData, dpar)
 
+  # Save the true parameters
   attd <- attributes(d)
-
   truepars <- c(attd$truebeta0 %% (2*pi), attd$residkappa, attd$truebeta)
 
-  r <- method(th=d[,1], X=d[,-1, drop=FALSE], ...)
+  # Analyze the dataset
+  r <- do.call(method, args=c(list(th=d[,1], X=d[,-1, drop=FALSE]), mpar))
 
+  # Obtain estimates
   est <- c(beta_0=meanDir(r[, 1]), colMeans(r[, -1, drop=FALSE]))
 
-  names(truepars) <- names(est)
-
+  # Return results.
   rbind(true=truepars, estimate=est)
 }
 
+dpar <- list(truebeta0="random", truebeta=1, nconpred=1, ncatpred=0, n=100,
+             linkfun=function(x) 2 * atan(x), invlinkfun=function(x) tan(x/2))
+
+mpar <- list(linkfun=function(x)2*atan(x), invlinkfun=function(x)tan(x/2),
+             Q=1000)
+
+d <- generateCircGLMData()
+th <- d[,1]
+X <- d[,-1]
 
 
-
-
-d <- generateCircGLMData(truebeta0="random", truebeta=1,
-                         nconpred=1, ncatpred=0, n=100,
-                         linkfun=function(x) 2 * atan(x),
-                         invlinkfun=function(x) tan(x/2))
-
-
-runCircGLM(d, mcmcGCM,
-           linkfun=function(x)2*atan(x), invlinkfun=function(x)tan(x/2),
-           Q=1000)
+runCircGLM(mcmcGCM, dpar, mpar)
 
 

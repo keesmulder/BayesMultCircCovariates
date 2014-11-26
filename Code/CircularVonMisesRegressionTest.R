@@ -52,7 +52,7 @@ mlebeta <- function(X, k=1, xl = c(-20, 20)) {
 
 
 # bwb: Bandwith for the proposal for beta
-mcmcGCM <- function(th, X, linkfun, invlinkfun,
+circGLM <- function(th, X, linkfun, invlinkfun,
                     b0_start=0, kp_start=1, bt_start=rep(0, ncol(X)),
                     bwb=rep(.5, ncol(X)), Q=1000) {
 
@@ -130,8 +130,12 @@ mcmcGCM <- function(th, X, linkfun, invlinkfun,
   }
 
 
-  sapply(ls(), function(obj) assign(obj, get(obj), envir = .GlobalEnv))
-  return(data.frame(b0, kp, bt))
+#   sapply(ls(), function(obj) assign(obj, get(obj), envir = .GlobalEnv))]
+  postsample <- data.frame(b0, kp, bt)
+
+  estimates  <- c(beta_0=meanDir(postsample[, 1]), colMeans(postsample[, -1, drop=FALSE]))
+
+  result     <- structure(estimates, postsample=postsample)
 }
 
 
