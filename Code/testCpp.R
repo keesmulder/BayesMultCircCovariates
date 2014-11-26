@@ -1,7 +1,7 @@
 
 source("Code/generateCircularGLMData.R")
-source("Code/describeCirc.R")
-source("Code/CircularVonMisesRegressionTest.R")
+# source("Code/describeCirc.R")
+# source("Code/CircularVonMisesRegressionTest.R")
 sourceCpp('Code/circGLM.cpp')
 
 library(circular)
@@ -12,11 +12,11 @@ th <- d[,  1]
 X  <- d[, -1]
 
 attributes(d)
-
+#
 b0 <- attr(d, "truebeta0")
 bt <- attr(d, "truebeta")
 kp <- attr(d, "residkappa")
-
+#
 # Joint Log-likelihood function, with data already built in.
 buildLogLikfun <- function(th, X, linkfun){
   function(b0, kp, bt){
@@ -25,30 +25,36 @@ buildLogLikfun <- function(th, X, linkfun){
       kp * sum(cos(th - b0 - linkfun(apply(X, 1, "%*%", bt))))
   }
 }
-# Link functions
+# # Link functions
 linkfun    <- function(x, c=2) c * atan(x)
 invlinkfun <- function(x, c=2) tan(x/c)
 
+# conj_prior
+
+K <- ncol(X)
+
+circGLM(th, X,
+        conj_prior = rep(0, 3),
+        bt_prior = matrix(c(0,1), nc=2, nr=K, byrow = TRUE),
+        starting_values = c(0, 1, rep(0, K)),
+        burnin = 0,
+        lag = 1,
+        bwb=.05,
+        kappaModeEstBandwith=.05,
+        CIsize=.95,
+        Q=10000,
+        c=2,
+        returnPostSample=TRUE)
+
+Rll <- buildLogLikfun(th, X, linkfun)
 
 
-llr <- buildLogLikfun(th, X, linkfun)
 
+Rll(b0, kp, bt)
 
-llr(b0, kp, bt)
-ll(b0 = b0, kp = kp, bt = bt, X = X, th = th, c = 2)
-llincl(b0 = b0, kp = kp, bt = bt, X = X, th = th, c = 2)
+btlik <- function(bt1) computeLogBtPost(b0+pi, kp, c(bt1, 0.1, 0.1, 0.1), th, X, 2, rep(0, 4), rep(1, 4))
 
-Q <- 1000000
-
-a2 <- system.time(replicate(Q, rhsll(b0 = b0, kp = kp, bt = bt, X = X, th = th, c = 2)))
-a3 <- system.time(replicate(Q, ll(b0 = b0, kp = kp, bt = bt, X = X, th = th, c = 2)))
-a4 <- system.time(replicate(Q, llincl(b0 = b0, kp = kp, bt = bt, X = X, th = th, c = 2)))
-
-a2
-a3
-a4
-
-
+plot(Vectorize(btlik), xlim=c(-10,10))
 
 
 
