@@ -5,6 +5,8 @@
 #include <iostream>
 
 using namespace Rcpp;
+using namespace arma;
+using namespace std;
 // Below is a simple example of exporting a C++ function to R. You can
 // source this function into an R session using the Rcpp::sourceCpp
 // function (or via the Source button on the editor toolbar)
@@ -13,9 +15,9 @@ using namespace Rcpp;
 
 // [[Rcpp::export]]
 int tes() {
-   arma::vec out = arma::vec(2);
+   vec out = vec(2);
    out(0) = 3;
    out(1) = 5;
-   std::cout << pow(out, 2);
+   cout << pow(out, 2);
    return 0;
 }

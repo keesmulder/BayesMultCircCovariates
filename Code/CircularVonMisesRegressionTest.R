@@ -52,7 +52,7 @@ mlebeta <- function(X, k=1, xl = c(-20, 20)) {
 
 
 # bwb: Bandwith for the proposal for beta
-circGLM <- function(th, X, linkfun, invlinkfun,
+circGLMR <- function(th, X, linkfun, invlinkfun,
                     b0_start=0, kp_start=1, bt_start=rep(0, ncol(X)),
                     bwb=rep(.5, ncol(X)), Q=1000) {
 

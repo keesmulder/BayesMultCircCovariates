@@ -1,7 +1,7 @@
 
  // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
-//using namespace arma;
+using namespace arma;
 
 // [[Rcpp::depends(BH)]]
 #include <boost/math/special_functions/bessel.hpp>
@@ -20,18 +20,16 @@ using namespace Rcpp;
 
 
 // [[Rcpp::export]]
-arma::vec tes() {
-  arma::vec out = arma::vec(1);
-//  out.zeros();
-  return out;
+vec tes() {
+  rowvec rv = rowvec(2);
+  rv(0)  = 3;
+  rv(1)  = 2;
+
+  colvec cv = colvec(2);
+  cv(0)  = 30;
+  cv(1)  = 23;
+
+  return rv + cv;
 }
 
-
-
-// [[Rcpp::export]]
-arma::mat mt(arma::mat X, arma::vec bt) {
-  arma::mat out = X;
-  out.each_row() *= bt;
-  return out;
-}
 

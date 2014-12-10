@@ -1,60 +1,67 @@
 
-source("Code/generateCircularGLMData.R")
-# source("Code/describeCirc.R")
+source("Data/generateCircularGLMData.R")
+source("Code/describeCirc.R")
 # source("Code/CircularVonMisesRegressionTest.R")
-sourceCpp('Code/circGLM.cpp')
+sourceCpp('DataAnalysis/circGLM.cpp')
 
 library(circular)
 
-set.seed(1337)
-d  <- generateCircGLMData()
+plot.circGLM <- function(m) {
+  par(mfrow = c(2,3))
+  plot.ts(m$b0_chain, main="beta_0")
+  plot.ts(m$kp_chain, main="kappa")
+  apply(m$bt_chain, 2, plot.ts, main="beta")
+  par(mfrow = c(1,1))
+}
+
+n <- 30
+K <- 2
+set.seed(1335)
+d  <- generateCircGLMData(n = n, nconpred = K, ncatpred = 0, truebeta = rep(.1, K),
+                          residkappa=4)
 th <- d[,  1]
 X  <- d[, -1]
 
-attributes(d)
-#
-b0 <- attr(d, "truebeta0")
-bt <- attr(d, "truebeta")
-kp <- attr(d, "residkappa")
-#
-# Joint Log-likelihood function, with data already built in.
-buildLogLikfun <- function(th, X, linkfun){
-  function(b0, kp, bt){
-    n <- length(th)
-    - n * log(besselI(kp, 0)) +
-      kp * sum(cos(th - b0 - linkfun(apply(X, 1, "%*%", bt))))
-  }
+print.circGLM <- function(m) {
+  printnames <- names(m)[1:(length(m)-3)]
+
+  print(m[printnames])
 }
-# # Link functions
-linkfun    <- function(x, c=2) c * atan(x)
-invlinkfun <- function(x, c=2) tan(x/c)
-
-# conj_prior
-
-K <- ncol(X)
-
-circGLM(th, X,
-        conj_prior = rep(0, 3),
-        bt_prior = matrix(c(0,1), nc=2, nr=K, byrow = TRUE),
-        starting_values = c(0, 1, rep(0, K)),
-        burnin = 0,
-        lag = 1,
-        bwb=.05,
-        kappaModeEstBandwith=.05,
-        CIsize=.95,
-        Q=10000,
-        c=2,
-        returnPostSample=TRUE)
-
-Rll <- buildLogLikfun(th, X, linkfun)
 
 
+Q <- 10000
+set.seed(202)
+m1 <- circGLM(th, X,
+              conj_prior = rep(0, 3),
+              bt_prior = matrix(c(0,1), nc=2, nr=K, byrow = TRUE),
+              starting_values = c(pi+1, 1, rep(0, K)),
+              burnin = 0,
+              lag = 1,
+              bwb=rep(.05, K),
+              kappaModeEstBandwith=.05,
+              CIsize=.95,
+              Q=Q,
+              r=2,
+              returnPostSample=TRUE,
+              bt_prior_type=1)
+class(m1) <- c("circGLM", class(m1))
+m1
+par(mfrow=c(1,1))
 
-Rll(b0, kp, bt)
+plot(m1)
+hist(m1$b0_chain)
+abline(v=circularQuantile(m1$b0_chain, c(0.025, .975)))
 
-btlik <- function(bt1) computeLogBtPost(b0+pi, kp, c(bt1, 0.1, 0.1, 0.1), th, X, 2, rep(0, 4), rep(1, 4))
-
-plot(Vectorize(btlik), xlim=c(-10,10))
+p <- m1$ProportionAccepted
 
 
+# plot.new()
+
+# # plot.new()
+# par(mfrow = c(2,3))
+# hist(m1$b0_chain, main="beta_0")
+# hist(m1$kp_chain, main="kappa")
+# apply(m1$bt_chain, 2, hist, main="beta")
+
+# acf(m1$b0_chain)
 

@@ -1,7 +1,29 @@
+/*
+# ----------------------------------------------------------
+# circGLMc.cpp
+# Runs an MCMC sampler for circular data.
+#
+# Kees Tim Mulder
+# Last updated: December 2014
+#
+#
+
+TODO
+- Try _ instead of named
+- Try to use namespace arma to remove arma::, BUT NOT for functions that are
+  also in Rcpp/RcppSugar.
+- Starting value for Beta_0 may be removed.
+
+#
+# This work was supported by a Vidi grant awarded to I. Klugkist from the
+# Dutch Organization for Scientific research (NWO 452-12-010).
+# ----------------------------------------------------------
+*/
+
+
 
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
-//using namespace arma;
 
 // [[Rcpp::depends(BH)]]
 #include <boost/math/special_functions/bessel.hpp>
@@ -10,15 +32,17 @@
 #include <math.h>
 
 using namespace Rcpp;
+using namespace std;
+using namespace arma;
 
 
 // TODO:
 // Check if quantiles are obtained properly.
 
-arma::vec atanlf(arma::vec x, double c) {
-  // arctangent-family link function, spreading range c, where c=1 corresponds to
-  // the semicircle.
-  return c * atan(x);
+arma::vec atanlf(arma::vec x, double r) {
+  // arctangent-family link function, spreading range range, where c=1 corresponds to
+  // the semicircle, and c=2 is most common.
+  return r * atan(x);
 }
 
 
@@ -146,14 +170,15 @@ arma::vec sampleKappa(double etag, int eta) {
     }
   } while (cont);
 
-  arma::vec out;
+  arma::vec out = arma::vec(2);
   out(0) = kp_can;
-  out(0) = nAttempts;
+  out(1) = nAttempts;
   return out;
 }
 
 
 
+// [[Rcpp::export]]
 double computeMeanDirection (arma::vec th) {
 // Compute the mean direction for some dataset th.
   double C = arma::as_scalar(arma::sum(cos(th)));
@@ -162,6 +187,7 @@ double computeMeanDirection (arma::vec th) {
 }
 
 
+// [[Rcpp::export]]
 double computeResultantLength (arma::vec th) {
 // Compute the resultant length for some dataset th.
   double C = arma::as_scalar(arma::sum(cos(th)));
@@ -188,7 +214,7 @@ arma::vec quantile(arma::vec x, arma::vec q) {
 }
 
 // [[Rcpp::export]]
-arma::vec circularQuantile(arma::vec th, arma::vec q) {
+arma::vec circQuantile(arma:: vec th, arma::vec q) {
 
   double rotation = computeMeanDirection(th) - 4 * atan(1);
 
@@ -241,6 +267,8 @@ arma::vec computeHDI(arma::vec x, double cip) {
 
   n = x.size();
 
+  std::sort(x.begin(), x.end());
+
   // The number of values within the
   // (cip*100)% Confidence Interval
   cil = trunc(cip*n);
@@ -270,17 +298,20 @@ arma::vec computeHDI(arma::vec x, double cip) {
 
 
 // [[Rcpp::export]]
-double rhsll(double b0, double kp, arma::vec bt,
-             arma::vec th, arma::mat X, double c) {
+double rhsll(double b0, double kp, arma::rowvec bt,
+             arma::vec th, arma::mat X, double r) {
   // The log-likelihood for use in the MCMC-algorithm. For speed-up the constant
   // addition can be skipped for MH-steps for which the left-hand side is indeed a
   // constant (ie., not kappa)
   // The right-hand side of the log-likelihood function.
 
   arma::mat X_bybt = X;
-  X_bybt.each_row() %= bt.t();
 
-  double rhs = arma::sum(cos(th - b0 - atanlf(arma::sum(X_bybt, 1), c)));
+
+  X_bybt.each_row() %= bt;
+
+
+  double rhs = arma::sum(cos(th - b0 - atanlf(arma::sum(X_bybt, 1), r)));
 
   return rhs * kp;
 }
@@ -288,7 +319,7 @@ double rhsll(double b0, double kp, arma::vec bt,
 
 // [[Rcpp::export]]
 double ll(double b0, double kp, arma::vec bt,
-          arma::vec th, arma::mat X, double c) {
+          arma::vec th, arma::mat X, double r) {
 // Full log-likelihood
 
   int n = th.size();
@@ -297,7 +328,7 @@ double ll(double b0, double kp, arma::vec bt,
   double lhs = - n * log(boost::math::cyl_bessel_i(0, kp));
 
   // The right-hand side of the likelihood function.
-  double rhs = rhsll(b0, kp, bt, th, X, c);
+  double rhs = rhsll(b0, kp, bt, th, X, r);
 
   return lhs + rhs;
 }
@@ -310,12 +341,14 @@ arma::vec logProbNormal (arma::vec x, arma::vec mu, arma::vec sd)
           ( pow(x - mu, 2) / (2 * pow(sd, 2) ) );
 }
 
+
+
 // [[Rcpp::export]]
 double computeLogBtPost (double b0, double kp,
-                arma::vec bt, arma::vec th, arma::mat X, double c,
+                arma::vec bt, arma::vec th, arma::mat X, double r,
                 arma::vec mu_prior, arma::vec sd_prior) {
 
-  double loglik = ll(b0, kp, bt, th, X, c);
+  double loglik = ll(b0, kp, bt, th, X, r);
 
   double logprior = 0;
 
@@ -345,26 +378,32 @@ double computeLogBtPost (double b0, double kp,
 
 // CIsize: What % credible intervals should be returned?
 // [[Rcpp::export]]
-Rcpp::List circGLM(arma::vec th, arma::mat X,
-                   arma::vec conj_prior, arma::mat bt_prior,
-                   arma::vec starting_values, int burnin, int lag,
-                   arma::vec bwb, double kappaModeEstBandwith, double CIsize,
-                   int Q, double c, bool returnPostSample, char bt_prior_type) {
+Rcpp::List circGLMC(arma::vec th, arma::mat X,
+                    arma::vec conj_prior, arma::mat bt_prior,
+                    arma::vec starting_values, int burnin, int lag,
+                    arma::vec bwb, double kappaModeEstBandwith, double CIsize,
+                    int Q, double r, bool returnPostSample, int bt_prior_type) {
 
+  //  To measure time taken.
+  clock_t begin = clock();
 
   double C_psi, S_psi, R_psi, psi_bar, bt_lograt, etag;
-  int nkpcan = 0; // Number of candidates for kappa
 
   // Sample size n and number of predictors K.
   int n = th.n_elem;
   int K = X.n_cols;
 
-  arma::vec b0_chain, kp_chain = arma::vec(Q);
-  arma::mat bt_chain = arma::mat(Q, K);
+  int nkpcan = 0; // Number of candidates for kappa
+  arma::vec nbtacc = zeros<arma::vec>(K); // Vector with # accepted beta's.
 
-  double b0_cur    = starting_values(0);
-  double kp_cur    = starting_values(1);
-  arma::vec bt_cur = starting_values(arma::span(2, K + 2));
+
+  arma::vec b0_chain = zeros<arma::vec>(Q);
+  arma::vec kp_chain = zeros<arma::vec>(Q);
+  arma::mat bt_chain = arma::zeros<arma::mat>(Q, K);
+
+  double b0_cur       = starting_values(0);
+  double kp_cur       = starting_values(1);
+  arma::rowvec bt_cur = starting_values(arma::span(2, K + 1)).t();
 
   double b0_prior = conj_prior(0);
   double R_prior  = conj_prior(1);
@@ -373,27 +412,33 @@ Rcpp::List circGLM(arma::vec th, arma::mat X,
   double S_prior  = R_prior * sin(b0_prior);
   int    n_post   = n + n_prior;
 
-  b0_chain(0)     = b0_cur;
-  kp_chain(0)     = kp_cur;
-  bt_chain.col(0) = bt_cur;
 
-  arma::vec sk_res(2); // To hold the results of the sampleKappa-function
-  arma::vec X_bybt(n); // Sum of beta*x of each predictor, before link function.
-  arma::vec psi(n);    // Data after subtraction of prediction.
-  arma::vec bt_can(K); // Candidate for vector of predictors.
+  // To hold the results of the sampleKappa-function
+  arma::vec sk_res = zeros<arma::vec>(2);
+
+  // Sum of beta*x of each predictor, before link function.
+  arma::mat X_bybt = zeros<arma::mat>(n, K);
+
+  // Data after subtraction of prediction.
+  arma::vec psi    = zeros<arma::vec>(n);
+
+  // Candidate for vector of predictors.
+  arma::rowvec bt_can = zeros<arma::rowvec>(K);
 
   // Compute number of iterations, taking lag and burn-in into account.
   int Qbylag = Q * lag + burnin;
   int isav = 0; // Keeps track of where to save those values not thinned out.
 
-  for (int i = 1; i < Qbylag; i++)
+
+  for (int i = 0; i < Qbylag; i++)
   {
     // Obtain an n*K matrix with beta_k * x_{i, k} in each cell.
     X_bybt  = X;
     X_bybt.each_row() %= bt_cur;
 
+
     // Obtain psi and its current properties.
-    psi     = th - atanlf(sum(X_bybt, 1), c);
+    psi     = th - atanlf(sum(X_bybt, 1), r);
     C_psi   = arma::as_scalar(arma::sum(cos(psi))) + C_prior;
     S_psi   = arma::as_scalar(arma::sum(sin(psi))) + S_prior;
     R_psi   = sqrt(pow(C_psi, 2) + pow(S_psi, 2));
@@ -405,23 +450,29 @@ Rcpp::List circGLM(arma::vec th, arma::mat X,
 
     for(int k = 0; k < K; k++) {
 
-      bt_can(k) += runif(-1, -bwb(k), bwb(k))[0];
+      bt_can(k) += runif(1, -bwb(k), bwb(k))[0];
 
-      if (bt_prior_type == "constant") {
-        bt_lograt = rhsll(b0_cur, kp_cur, bt_can, th, X, c) -
-                    rhsll(b0_cur, kp_cur, bt_cur, th, X, c);
-      }
-      else if (bt_prior_type == "normal")
+      if (bt_prior_type == 0)
       {
-        bt_lograt = rhsll(b0_cur, kp_cur, bt_can, th, X, c) +
-                    logProbNormal(bt_can, bt_prior.col(0), bt_prior.col(1)) -
-                    rhsll(b0_cur, kp_cur, bt_cur, th, X, c) -
-                    logProbNormal(bt_cur, bt_prior.col(0), bt_prior.col(1));
+        bt_lograt = rhsll(b0_cur, kp_cur, bt_can, th, X, r) -
+                    rhsll(b0_cur, kp_cur, bt_cur, th, X, r);
       }
+      else
+      {
+
+        bt_lograt = rhsll(b0_cur, kp_cur, bt_can, th, X, r) +
+                    arma::sum(logProbNormal(bt_can.t(), bt_prior.col(0), bt_prior.col(1))) -
+                    rhsll(b0_cur, kp_cur, bt_cur, th, X, r) -
+                    arma::sum(logProbNormal(bt_cur.t(), bt_prior.col(0), bt_prior.col(1)));
+      }
+
+
 
       if (bt_lograt > log(runif(1, 0, 1)[0]))
       {
         bt_cur(k) = bt_can(k);
+
+        if (i >= burnin) nbtacc(k)++;
       }
       else
       {
@@ -430,7 +481,6 @@ Rcpp::List circGLM(arma::vec th, arma::mat X,
     }
 
     etag = - R_psi * cos(b0_cur - psi_bar);
-
     sk_res  = sampleKappa(etag, n_post);
     kp_cur  = sk_res(0);
 
@@ -452,50 +502,58 @@ Rcpp::List circGLM(arma::vec th, arma::mat X,
     }
   }
 
-
-
   //  Estimated values
   double b0_meandir = computeMeanDirection(b0_chain);
   double kp_mean    = arma::mean(kp_chain);
   double kp_mode    = estimateMode(kp_chain, kappaModeEstBandwith);
-  arma::vec bt_mean = arma::mean(bt_chain, 0);
+  arma::rowvec bt_mean = zeros<rowvec>(K);
+  bt_mean = arma::mean(bt_chain, 0);
 
 
-  // Bounds for the CCI's, which
+  // Bounds for the CCI's
   arma::vec qbounds = arma::vec(2);
   qbounds(0) = (1-CIsize)/2.0;
   qbounds(1) = 1-((1-CIsize)/2.0);
 
-
-  arma::vec b0_CCI  = circularQuantile(b0_chain, qbounds);
+  arma::vec b0_CCI  = circQuantile(b0_chain, qbounds);
   arma::vec kp_HDI  = computeHDI(kp_chain, CIsize);
 
 //  matrix with CCI's for beta.
-  arma::mat bt_CCI  = arma::mat(K, 2);
+  arma::mat bt_CCI  = arma::mat(2, K);
+
 
   for (int predi = 0; predi < K; predi++)
   {
-     bt_CCI.row(predi) = quantile(bt_chain.col(predi), qbounds);
+     bt_CCI.col(predi) = quantile(bt_chain.col(predi), qbounds);
   }
 
   // Proportion of values for kappa that was accepted.
-  float propacc = Q * lag / nkpcan;
+  double propacckp    = (double) Q * (double) lag / (double) nkpcan;
+  arma::vec propaccbt = nbtacc / ((double) Q * (double) lag);
 
   Rcpp::List out;
 
   out["b0_meandir"] = b0_meandir;
+  out["b0_CCI"]     = b0_CCI;
+
   out["kp_mean"]    = kp_mean;
   out["kp_mode"]    = kp_mode;
-  out["b0_CCI"]     = b0_CCI;
   out["kp_HDI"]     = kp_HDI;
-  out["bt_CCI"]     = bt_CCI;
-  out["PropAcc"]    = Rcpp::wrap(propacc);
+  out["kp_propacc"] = Rcpp::wrap(propacckp);
 
+  out["bt_mean"]    = bt_mean;
+  out["bt_CCI"]     = bt_CCI;
+  out["bt_propacc"]  = Rcpp::wrap(propaccbt.t());
+
+  out["SavedIts"]    = Rcpp::wrap(Q);
+  out["TotalIts"]    = Rcpp::wrap(Qbylag);
+
+  clock_t end = clock();
+  out["TimeTaken"] = double(end - begin) / CLOCKS_PER_SEC;
 
 
   if (returnPostSample)
   {
-////  Try _
     out["b0_chain"]   = b0_chain;
     out["kp_chain"]   = kp_chain;
     out["bt_chain"]   = bt_chain;
