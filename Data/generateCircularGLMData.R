@@ -5,12 +5,7 @@ sourceCpp("Code/rvmc.cpp")
 generateCircGLMData <- function(n=30, residkappa=5, nconpred=2, ncatpred=2,
                                 truebeta0 = pi/2,
                                 truebeta  = rep(.1, nconpred+ncatpred),
-                                linkfun   = function(x) 2 * atan(x),
-                                seed ="random") {
-  if (!is.numeric(seed) && seed == "random") {
-    seed  <- sample(1:1000000, 1)
-  }
-  set.seed(seed)
+                                linkfun   = function(x) 2 * atan(x)) {
 
   # Check whether true parameter values must be drawn.
   if (!is.numeric(truebeta0)  && truebeta0 == "random") {
@@ -64,7 +59,9 @@ generateCircGLMData <- function(n=30, residkappa=5, nconpred=2, ncatpred=2,
 
 # Generate circular outcome GLM datasets, and save them to disk.
 saveCircGLMDatasets <- function (truens, truekps, truebts,
-                                 truebeta0 = pi/2, nsim = 100) {
+                                 truebeta0 = pi/2, nsim = 100, seed = 139738) {
+
+  set.seed(seed)
 
   # All designs we want to generate data for.
   designs <- expand.grid(n=truens, kp=truekps, bt=truebts,
@@ -83,31 +80,45 @@ saveCircGLMDatasets <- function (truens, truekps, truebts,
 
     # Directory for placing the datasets.
     saveDirName       <- paste0(getwd(),
-                            "/Data/Datasets/",
-                            "n=",         curDesign$n,
-                            "_kp=",       curDesign$kp,
-                            "_bt=",       curDesign$bt,
-                            "_bttype=",   paste0(curbttype))
+                                "/Data/Datasets/",
+                                "n=",         curDesign$n,
+                                "_kp=",       curDesign$kp,
+                                "_bt=",       curDesign$bt,
+                                "_bttype=",   paste0(names(curDesign$bt)))
 
     # Create a folder for the datasets
     dir.create(saveDirName, showWarnings=FALSE)
+
+    alreadyExistingCounter <- 0
 
     # Repeat generation nsim times.
     for (isim in 1:nsim) {
 
       writefilename <- paste0(saveDirName, "/nr", isim, ".csv")
 
+      if (!file.exists(writefilename)) {
 
-      # Actually generate the data.
-      d <- generateCircGLMData(n = curDesign$n,
-                               residkappa = curDesign$kp,
-                               truebeta   = curDesign$bt[[1]],
-                               truebeta0  = pi/2,
-                               nconpred   = nconpred,
-                               ncatpred   = ncatpred)
+        # Actually generate the data.
+        d <- generateCircGLMData(n = curDesign$n,
+                                 residkappa = curDesign$kp,
+                                 truebeta   = curDesign$bt[[1]],
+                                 truebeta0  = pi/2,
+                                 nconpred   = nconpred,
+                                 ncatpred   = ncatpred)
 
-      write.table(d, writefilename, sep = ",", row.names=FALSE, col.names=FALSE)
+        # Write data to chosen filename.
+        write.table(d, writefilename, sep = ",", row.names=FALSE, col.names=FALSE)
+      } else {
+        alreadyExistingCounter <- alreadyExistingCounter + 1
+      }
+
     }
+
+    if (alreadyExistingCounter > 0) {
+      warning(paste0("For ", saveDirName, ", ", alreadyExistingCounter, "/", nsim,
+                     " datasets already existed."))
+    }
+
   }
 }
 

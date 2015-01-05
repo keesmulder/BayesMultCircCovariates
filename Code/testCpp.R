@@ -6,13 +6,6 @@ sourceCpp('DataAnalysis/circGLM.cpp')
 
 library(circular)
 
-plot.circGLM <- function(m) {
-  par(mfrow = c(2,3))
-  plot.ts(m$b0_chain, main="beta_0")
-  plot.ts(m$kp_chain, main="kappa")
-  apply(m$bt_chain, 2, plot.ts, main="beta")
-  par(mfrow = c(1,1))
-}
 
 n <- 30
 K <- 2
@@ -22,11 +15,6 @@ d  <- generateCircGLMData(n = n, nconpred = K, ncatpred = 0, truebeta = rep(.1, 
 th <- d[,  1]
 X  <- d[, -1]
 
-print.circGLM <- function(m) {
-  printnames <- names(m)[1:(length(m)-3)]
-
-  print(m[printnames])
-}
 
 
 Q <- 10000
@@ -42,9 +30,10 @@ m1 <- circGLM(th, X,
               CIsize=.95,
               Q=Q,
               r=2,
-              returnPostSample=TRUE,
-              bt_prior_type=1)
-class(m1) <- c("circGLM", class(m1))
+              returnPostSample=FALSE,
+              bt_prior_type=1,
+              output="vector")
+
 m1
 par(mfrow=c(1,1))
 

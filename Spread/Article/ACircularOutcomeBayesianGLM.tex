@@ -1,0 +1,65 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\author{Kees Mulder}
+\title{A Circular Outcome Bayesian GLM}
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+\begin{itemize}
+\item Previous work provides a distribution (Mardia), and a GLM-type model (Lagona). Earlier work was very limited (Gill, Hangartner).
+\item Full bayesian analysis requires a sampler, priors, posteriors. Some properties of MCMC sampling for the von Mises are discussed in my previous work.
+\item Here, we will develop a flexible method to analyse circular outcome data, which can also be used in ANCOVA type situations. 
+\end{itemize}
+
+\section{The model}
+
+\begin{itemize}
+\item Multivariate von Mises distribution
+\item Other multivariate circular distributions?
+\item Notation
+\item Link function
+\item Likelihood
+\item Prior
+\item Posterior
+\end{itemize}
+
+\section{Computational issues}
+
+\begin{itemize}
+\item Shape of the marginal likelihood for some common cases
+\item Selection of starting values
+\item Non-interpretability of beta's
+\item Solutions
+\end{itemize}
+
+\section{Simulation study}
+
+\begin{itemize}
+\item Cases
+\item Results
+\item Figures
+\end{itemize}
+
+\section{Application}
+
+\begin{itemize}
+\item 1-3 example datasets, analyzed with CCI's etc. 
+\item At least one highly dimensional dataset that would fail under Gill \& Hangartner.  
+\end{itemize}
+
+
+\section{Discussion}
+
+\begin{itemize}
+\item This model is great.
+\item This model is far superior to the projected approach, because of reasons. Or maybe worse. 
+\item Can be extended with association matrix, multilevel structures (Lagona).
+\end{itemize}
+
+\end{document}

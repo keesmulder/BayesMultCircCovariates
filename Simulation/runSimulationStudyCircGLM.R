@@ -7,18 +7,18 @@ truekps <- c(0.5, 5, 30)
 
 # The true Betas MUST be passed with the beta's for continuous predictors first.
 truebts        <- list(rep(.1, 2), rep(1, 4), rep(5, 10))
-names(truebts) <- c("ll", "llll", "lllll lllll")
+names(truebts) <- c("ll", "llll", "llllllllll")
 
 truebeta0 <- pi/2
-nsim      <- 100
-Q         <- 10000
+nsim      <- 10
+Q         <- 100
 
 # #
-# saveCircGLMDatasets(truens = truens,
-#                     truekps = truekps,
-#                     truebts = truebts,
-#                     truebeta0 = truebeta0,
-#                     nsim = nsim)
+saveCircGLMDatasets(truens = truens,
+                    truekps = truekps,
+                    truebts = truebts,
+                    truebeta0 = truebeta0,
+                    nsim = nsim)
 
 
 
@@ -52,25 +52,31 @@ bwb=list(rep(.05, 2),
 
 
 nbt1 <- 2
-betades1 <- list(ll=rep(0.1, nbt1),
+betades1 <- list(ll = truebts[[1]],
                  starting_values=c(0, 1, rep(0, nbt1)),
                  bt_prior=matrix(c(0,1), nc=2, nr=nbt1, byrow = TRUE),
                  bwb=rep(.05, 2))
 
 nbt2 <- 4
-betades2 <- list(llll=rep(0.1, nbt2),
+betades2 <- list(llll = truebts[[2]],
                  starting_values=c(0, 1, rep(0, nbt2)),
                  bt_prior=matrix(c(0,1), nc=2, nr=nbt2, byrow = TRUE),
                  bwb=rep(.05, nbt2))
 
 nbt3 <- 10
-betades3 <- list('lllll lllll'= rep(0.1, nbt3),
+betades3 <- list(llllllllll = truebts[[3]],
                  starting_values=c(0, 1, rep(0, nbt3)),
                  bt_prior=matrix(c(0,1), nc=2, nr=nbt3, byrow = TRUE),
                  bwb=rep(.05, nbt3))
 
 betaDesigns <- list(betades1, betades2, betades3)
 
+
+res <- simStudyCircGLM(truens = truens, truekps = truekps,
+                       betaDesigns = betaDesigns, nsim = nsim,
+                       output = "df", seed = 389238, mcmcpar = mcmcpar)
+
+do.call(circGLM, c(list(th=th, X=X, output="vector"), curPar))
 
 
 
