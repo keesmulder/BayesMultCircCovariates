@@ -5,9 +5,31 @@ sourceCpp('DataAnalysis/circGLM.cpp')
 
 plot.circGLM <- function(m) {
   par(mfrow = c(2,3))
-  plot.ts(m$b0_chain, main="beta_0")
-  plot.ts(m$kp_chain, main="kappa")
-  apply(m$bt_chain, 2, plot.ts, main="beta")
+
+  if (is.null(m$b0_chain)) {
+    warning("No posterior sample saved for this result.")
+  } else {
+
+    # If the chain is reasonably small, plot the whole chain.
+    if (m$SavedIts < 5000) {
+      plot.ts(m$b0_chain, xlab="Iteration", ylab="Beta_0", main="Beta_0 chain")
+      plot.ts(m$kp_chain, xlab="Iteration", ylab="Kappa", main="Kappa chain")
+      apply(m$bt_chain, 2, plot.ts,
+            xlab="Iteration", ylab="Beta", main="Beta chain")
+
+    # Otherwise plot only 5000 values, otherwise the plotting will be too slow.
+    } else {
+      idx <- round(seq(1, m$SavedIts, m$SavedIts/5000))
+      plot.ts(x=idx, y=m$b0_chain[idx], xy.lines=TRUE,
+              xlab="Iteration", ylab="Beta_0", pch=NA, main="Beta_0 chain")
+      plot.ts(x=idx, y=m$kp_chain[idx], xy.lines=TRUE,
+              xlab="Iteration", ylab="Kappa", pch=NA, main="Kappa chain")
+      apply(m$bt_chain[idx, ], 2,
+            function(btchain) plot.ts(x=idx, y=btchain, xy.lines=TRUE,
+                                      xlab="Iteration", ylab="Beta", pch=NA, main="Beta chain"))
+    }
+  }
+
   par(mfrow = c(1,1))
 }
 
@@ -17,7 +39,7 @@ plot.circGLM <- function(m) {
 print.circGLM <- function(m) {
   print(m[-grep("chain|Call", names(m))])
   print(lapply(m[grep("chain", names(m))], head))
-  return(NULL)
+  invisible(return(NULL))
 }
 
 
@@ -37,8 +59,9 @@ fixResultNames <- function(nms){
 
 circGLM <- function(th, X, conj_prior, bt_prior, starting_values,
                     burnin, lag, bwb, kappaModeEstBandwith, CIsize,
-                    Q, r, returnPostSample, bt_prior_type,
+                    Q=10000, r=2, returnPostSample=FALSE, bt_prior_type=1,
                     output = "list") {
+
 
   res <- circGLMC(th, X, conj_prior, bt_prior, starting_values,
                   burnin, lag, bwb, kappaModeEstBandwith, CIsize,

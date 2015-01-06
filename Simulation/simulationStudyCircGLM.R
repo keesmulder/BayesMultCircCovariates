@@ -25,7 +25,8 @@ angleInCircInterval <- function (th, CI) {
 
 # output options: 'array', 'df', and 'full'.
 simStudyCircGLM <- function(truens, truekps, betaDesigns,
-                            nsim = 100, output="array", seed=489734,
+                            nsim = 100, output="array", saveResults=TRUE,
+                            seed=489734,
                             mcmcpar=list(conj_prior = rep(0, 3),
                                          Q=10000,
                                          burnin = 0,
@@ -43,12 +44,28 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
   # The directory containing the datasets.
   datasetsDir <- paste0(getwd(), "/Data/Datasets/")
 
-  # Final resulting vector.
-  simStudyResults <- list()
+  # Final result.
+  simStudyResults  <- list()
+
+  btDesName <-  paste0("(bt)",
+                       paste0(sapply(betaDesigns,
+                                     function(x) paste0(names(x)[1], "=", paste(x[[1]], collapse=","))),
+                              collapse="_"))
+  simFileName <- paste("[simStudCircGLM",
+                        paste0("(nsim)", nsim),
+                        paste0("(n)", paste(truens,  collapse=",")),
+                        paste0("(kp)", paste(truekps, collapse=",")),
+                        paste0(btDesName, "].rda"), sep = "]__[")
+  simFilePath <- paste0(getwd(), "/Simulation/Results/", simFileName)
+
+  if(file.exists(simFilePath)&saveResults) {
+    warning(paste("Simulation file", simFileName, "already existed."))
+    invisible(return(NULL))
+  }
 
   # Total number of designs and a counter, to be used for progressbar.
   totalNDesigns      <- length(truens) * length(truekps) * length(betaDesigns)
-  totalDesignCounter <- 1
+  totalDesignCounter <- 0
 
   # The outermost loop loops through different values for K. If we have a
   # different number of predictors, the output will look different.
@@ -96,7 +113,6 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
       thisBtdesRight <- data.frame(matrix(NA,
                                           nr=ndesigns,
                                           nc=nOutcomes))
-#       colnames(thisBtdesRight) <- totalResultNames
       thisBtdesDf    <- cbind(designs, thisBtdesRight)
 
     } else if (output == "full"){
@@ -175,7 +191,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
                         "kp_mean_bias" = curSimRes[['kp_mean']] - curDesign$kp,
                         "kp_mode_bias" = curSimRes[['kp_mode']] - curDesign$kp,
                         "kp_in_HDI"    = curDesign$kp > curSimRes[['kp_HDI_LB']] &
-                                         curDesign$kp < curSimRes[['kp_HDI_UB']],
+                          curDesign$kp < curSimRes[['kp_HDI_UB']],
                         bt_bias,
                         bt_bias_meanOverBt = mean(bt_bias),
                         bt_in_CCI,
@@ -185,17 +201,13 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
 
         curDgnRes[isim, ] <- curCombinedRes
 
-
-
-
-
         # Progress bar
         simTimes[isim]     <- curSimRes['TimeTaken']
         avgTimeTaken       <- mean(simTimes, na.rm = TRUE)
         timeRemaining      <- (nsim - isim) * avgTimeTaken
         dispTimeRemaining  <- ifelse(timeRemaining > 120,
-                                    paste(round(timeRemaining/60, 0),"minutes"),
-                                    paste(round(timeRemaining, 1),"seconds"))
+                                     paste(round(timeRemaining/60, 0),"minutes"),
+                                     paste(round(timeRemaining, 1),"seconds"))
 
         info <- paste0("\t Design ", totalDesignCounter, "/", totalNDesigns, ":  ",
                        round((isim/nsim)*100), "% done. \t Mean time",
@@ -218,7 +230,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
       if (output == "array" | output == "df") {
 
         summaryThisDesignRes <- c("b0_meandir" =
-                                       computeMeanDirection(curDgnRes[, 1]),
+                                    computeMeanDirection(curDgnRes[, 1]),
                                   apply(curDgnRes[, -1], 2, mean))
 
         # Place the results in the output-files.
@@ -229,7 +241,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
           thisBtdesDf[idesign, -(1:6)] <- summaryThisDesignRes
         }
 
-      # For the full output, we place the full results into the large array.
+        # For the full output, we place the full results into the large array.
       } else if (output == "full") {
         thisBtdesFullArray[, , as.character(curDesign$n),
                            as.character(curDesign$kp)] <- curDgnRes
@@ -238,24 +250,25 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
 
     } # End of 1:ndesigns loop.
 
+    btdesName <- paste(names(curTrueBts), "=", curTrueBts)
 
-
-  btdesName <- paste(names(curTrueBts), "=", curTrueBts)
-
-  if (output == "array") {
-    simStudyResults[[btdesName]] <- thisBtdesArray
-  } else if (output == "df" | output == "dataframe") {
-    colnames(thisBtdesDf)[-(1:6)] <- names(summaryThisDesignRes)
-    simStudyResults[[btdesName]] <- thisBtdesDf
-  } else if (output == "full"){
-    simStudyResults[[btdesName]] <- thisBtdesFullArray
-  }
+    if (output == "array") {
+      simStudyResults[[btdesName]] <- thisBtdesArray
+    } else if (output == "df" | output == "dataframe") {
+      colnames(thisBtdesDf)[-(1:6)] <- names(summaryThisDesignRes)
+      simStudyResults[[btdesName]] <- thisBtdesDf
+    } else if (output == "full"){
+      simStudyResults[[btdesName]] <- thisBtdesFullArray
+    }
 
 
   } # End of betaDesigns loop.
 
-  simStudyResults
+  if (saveResults) {
+    save(simStudyResults, file = simFilePath)
+  }
 
+  return(simStudyResults)
 }
 
 

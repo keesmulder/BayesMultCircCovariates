@@ -54,3 +54,25 @@ p <- m1$ProportionAccepted
 
 # acf(m1$b0_chain)
 
+logBessel <- function(x, v) log(besselI(x, v, expon.scaled = TRUE)) + x
+
+
+logBesselNaive(10, 0)
+logBesselNaive(800, 0)
+logBesselFromR(800, 0, logBessel)
+
+n <- 100000
+
+x <- 100
+v <- 0
+
+tnaive <- system.time(replicate(n, {logBesselNaive(x, v)}))
+tfromR <- system.time(replicate(n, {logBesselFromR(x, v, logBessel)}))
+
+tfromR /
+tnaive
+
+
+
+
+
