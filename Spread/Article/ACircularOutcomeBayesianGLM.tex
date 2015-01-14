@@ -1,8 +1,23 @@
 \documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
+
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
+
+\usepackage{graphicx}
+%\usepackage{fullpage}
+
+\usepackage{apacite}
+\usepackage{natbib}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    citecolor=blue,
+    urlcolor=blue
+}
+
 \author{Kees Mulder}
 \title{A Circular Outcome Bayesian GLM}
 \begin{document}
@@ -11,11 +26,70 @@
 
 \section{Introduction}
 
-\begin{itemize}
-\item Previous work provides a distribution (Mardia), and a GLM-type model (Lagona). Earlier work was very limited (Gill, Hangartner).
-\item Full bayesian analysis requires a sampler, priors, posteriors. Some properties of MCMC sampling for the von Mises are discussed in my previous work.
-\item Here, we will develop a flexible method to analyse circular outcome data, which can also be used in ANCOVA type situations. 
-\end{itemize}
+Circular data is data that is measured in angles or directions. They are frequently encountered in scientific fieldsas diverse as Molecular Biology, Cognitive Psychology, Political Science \citep{gill2010} and Earth Sciences. Circular data differ from linear data in the sense that circular data are measured in a periodical sample space. For example, an angle of $1^{\circ}$ is quite close to an angle $359^{\circ},$ although linear intuition would suggest otherwise. 
+
+Because of this, linear models may not fully describe the process that has generated the circular data of interest. Circular data analysis has been developed to deal with this, but the attention to this type of data has been limited. Only slightly more than a handful of in-depth books on circular data analysis have been published \citep{fisher1995statistical,mardia1999directional,pewsey2013circular}, and statistical methods are generally fairly limited. The Bayesian paradigm, in particular MCMC methods, may provide a flexible new approach to analyzing circular data. 
+
+The circular analogue to the normal distribution is the von Mises distribution \citep{von1918ganzzahligkeit}. This symmetric unimodal distribution is given by
+\begin{equation}
+VM(\theta \vert \mu, \kappa) = \left[ 2 \pi I_0(\kappa) \right]^{-1} 
+\exp \left( \kappa \cos \left[ \theta - \mu \right] \right),
+\end{equation}
+where $\theta$ represents an angular measurement, $\mu$ represents the mean direction, $\kappa$ is a concentration parameter, and $I_0$ represents the modified Bessel function of the first kind and order zero. Early approaches to Markov chain Monte Carlo (MCMC) sampling for this model provide a method for sampling $\mu$ when $\kappa$ is known \citep{mardia1976bayesian} and sampling both parameters for a single group of data \citep{damien1999fullbayes}. Recent theoretical work has much improved the efficiency of the sampling of the concentration parameter of the von Mises distribution \citep{forbes2014fast}. None of these approaches allows prediction of circular outcome data or comparison of groups. Frequentist methods for these situations have been developed in a circular ANOVA \citep{harrison1986analysis,harrison1988development} and circular regression \citep{fisher1992regression}, but they are limited in scope and applicability. 
+
+A Bayesian circular data regression analysis is performed and applied by \citet{gill2010}, using starting values from a frequentist iterative reweighted least squares (IRLS) algorithm, similar to that used by \citet{fisher1992regression}. In that paper, the authors show that the likelihood of the regression coefficients $\beta$ from their model is not globally concave, and advise careful inspection of the likelihood surface of the regression coefficients. Downsides to the approach taken by \citet{gill2010} are that a prior is not specified, the algorithm is very slow, and it may be uncertain whether the regression coefficients will move to a local maximum instead of the global maximum. 
+
+Recent work has provided a multivariate extension of the von Mises distribution \citep{mardia2008multivariate,mardia2014some}. \citet{lagona2014regression} extends this to the General Linear Model (GLM) setting, applying MCMC likelihood approximation as in \citet{geyer1992constrained} to obtain Maximum Likelihood Estimates (MLEs). This is approach is not fully Bayesian, but it is a promising approach because of its flexibility, allowing both the mean and concentration to be dependent on an arbitrary set of covariates, as well as allowing observations to be dependent.
+
+The GLM approach to analysis of circular data is not free from the lack of concavity as described in \citet{gill2010}, although this has not been investigated in literature. In this paper, the GLM approach will applied in a fully Bayesian setting. Furthermore, the lack of concavity in the likelihoods will be examined, and suggestions will be formulated on how to deal with this issue. 
+
+\section{Model}
+
+Let $\boldsymbol\theta = \theta_1, \dots, \theta_n$ be a set of circular data, where each $\theta_i \in [-\pi, \pi)$, and let $\boldsymbol{X}$ be an $(n \times K)$ matrix of $K$ linear predictors. Assume that each angle is drawn from an independent VM distribution $ VM(\theta_i \vert \hat{\theta_i}, \kappa)$. The predicted value $\hat{\theta_i}$ is given by
+\begin{equation}
+\hat{\theta_i} = \beta_0 + g(\boldsymbol\beta^T \boldsymbol{x}_i), 
+\end{equation}
+where $g(\cdot)$ is a link function, as described in \citet{fisher1992regression}. 
+
+\subsection{Link function}
+
+The link function maps $\boldsymbol\beta^T \boldsymbol{x}_i \in \mathbb{R}$ to the circular sample space $\mathbb{S}^1$. 
+
+A popular choice is 
+\begin{equation}
+g(x) = 2 \tan^{-1}(x),
+\end{equation} because for this link function $g(0) = 0,$ and because its range is $\mathbb{S}^1$, that is, it may predict values across the entire circle. This link function is shown in figure \ref{linkfunc}.
+
+\begin{figure}
+{\centering \includegraphics[width=\linewidth]{figure/Link.pdf} }
+\caption{Link function $g(x) = 2 \tan^{-1}(x).$}
+\label{linkfunc}
+\end{figure}
+
+\subsection{Likelihood}
+
+The joint likelihood is given by
+\begin{align}
+L(\beta_0, \boldsymbol{\beta}, \kappa \vert \boldsymbol{\theta}) &\propto  \prod_{i=1}^{n} \mathcal{VM}(\theta_i \vert \beta_0 + g(\boldsymbol\beta^T \boldsymbol{x}_i), \kappa) \\
+&=  \left\lbrace 2 \pi I_0(\kappa) \right\rbrace^{-n} \exp \left\lbrace \kappa \sum_{i=1}^{n} \cos \left[ \theta_i - \beta_0 - g(\boldsymbol\beta^T \boldsymbol{x}_i) \right]  \right\rbrace. 
+\end{align}
+
+%It can be shown (see Appendix A) that the conditional distribution of $\beta_0$ is proportional to $\mathcal{VM}(\beta_0 \vert \bar\psi, R_{\psi} \kappa).$ This makes it straightforward to sample from $\beta_0$ as in \citet{fisher1995statistical}. %Conditionals for $\kappa$ and $\boldsymbol\beta$ are not of known form and require special attention. 
+
+\subsection{Prior}
+
+For $\beta_0$ and $\kappa$, a conjugate prior will be used. Setting $\psi_i = \theta_i - g(\boldsymbol\beta^T \boldsymbol{x}_i)$ leaves us with simply the regular von Mises likelihood $L_{VM}(\beta_0, \kappa \vert \boldsymbol\psi)$, where $\beta_0$ is the mean direction. \citet{guttorp1988finding} present a conjugate prior for the von Mises distribution. It is given up to a constant of proportionality by 
+$$ p(\mu_{\psi}, \kappa_{\psi}) \propto  I_0 (\kappa_{\psi}) ^{-c} \exp\{R_0 \kappa_{\psi} \cos (\mu_{\psi} - \mu_0)\},$$
+which represents $c$ observations of $\psi$ with prior mean direction $\mu_0$ and prior resultant length $R_0$. Note, however, that in this case this represents our prior information regarding the distribution of $\psi$ rather than $\theta$. It may seem unlikely to expect prior expectations to exist about $\mu_{\psi}$ and $\kappa_{\psi}$, but this method does allow easy specification of a non-informative prior as well by setting $R_0 = 0$ and $c = 0$. 
+
+For each $\beta$, a normal prior will be specified. 
+
+\subsection{Posterior}
+
+
+
+
+
 
 \section{The model}
 
@@ -61,5 +135,53 @@
 \item This model is far superior to the projected approach, because of reasons. Or maybe worse. 
 \item Can be extended with association matrix, multilevel structures (Lagona).
 \end{itemize}
+
+
+
+
+
+
+
+
+
+\section*{Appendix A: Conditional distribution of $\beta_0$} \label{beta0}
+
+Here, I will show that the conditional distribution for $\beta_0$,
+
+$$ L(\beta_0 \vert \boldsymbol\beta, \kappa, \theta, \boldsymbol{X}) \propto \exp \left\lbrace \kappa \sum_{i=1}^n \cos \left[ \theta_i - (\beta_0 + g(\boldsymbol\beta^T \boldsymbol{x}_i)) \right]  \right\rbrace \propto \mathcal{VM}(\beta_0 \vert \bar\psi, R_{\psi}\kappa). $$
+
+The proof for the conditional distribution of $\beta_0$ in the GLM closely follows the derivation for the distribution of the mean direction $\mu$ of the von Mises distribution, which shows that $L(\mu \vert \kappa, \boldsymbol\theta) \propto \mathcal{VM}(\mu \vert \bar\theta, R_{\theta} \kappa)$.
+
+The conditional likelihood of $\beta_0$ is given by
+
+\begin{align*}
+L(\beta_0 \vert \boldsymbol\beta, \kappa, \theta, \boldsymbol{X}) & \propto \exp \left\lbrace \kappa \sum_{i=1}^n \cos \left[ \theta_i - (\beta_0 + g(\boldsymbol\beta^T \boldsymbol{x}_i)) \right] \right\rbrace \\
+& = \exp \left\lbrace \kappa \sum_{i=1}^n \cos \left[ \beta_0 - (\theta_i - g(\boldsymbol\beta^T \boldsymbol{x}_i)) \right]  \right\rbrace.
+\end{align*}
+
+We know that for any angle $\psi_i, i = 1, \dots, n$,
+
+$$ C_{\psi} = \sum_{i=1}^n \cos(\psi_i), ~~ S_{\psi} = \sum_{i=1}^n \sin(\psi_i), ~~ R_{\psi} = \sqrt{C_{\psi}^2 + S_{\psi}^2}, ~~ $$
+
+$$ \text{and} ~~ \frac{C_{\psi}}{R_{\psi}} = \cos \bar\psi, ~~ \frac{S_{\psi}}{R_{\psi}} = \sin \bar\psi, ~~ \text{where} ~~ \bar\psi = \text{atan2}(S_{\psi}, C_{\psi}). $$
+
+Thus, setting angle $\psi_i = \theta_i - g(\boldsymbol\beta^T \boldsymbol{x}_i)$,
+
+
+\begin{align*}
+L(\beta_0 \vert \boldsymbol\beta, \kappa, \boldsymbol\theta, \boldsymbol{X}) & \propto \exp \left\lbrace \kappa \sum_{i=1}^n \cos ( \beta_0 - \psi_i)  \right\rbrace \\
+& = \exp \left\lbrace \kappa   \left[ \cos\beta_0 \sum_{i=1}^n \cos\psi_i +  \sin\beta_0 \sum_{i=1}^n \sin\psi_i \right]  \right\rbrace \\
+& = \exp \left\lbrace R_{\psi}  \kappa  \left[ \cos\beta_0 \frac{C_{\psi}}{R_{\psi}} +  \sin\beta_0 \frac{S_{\psi}}{R_{\psi}} \right]  \right\rbrace \\
+& = \exp \left\lbrace R_{\psi} \kappa   \left[ \cos\beta_0 \cos{\bar\psi} +  \sin\beta_0 \sin{\bar\psi}\right]  \right\rbrace \\
+& = \exp \left\lbrace R_{\psi} \kappa \cos \left( \beta_0 - \bar\psi \right)  \right\rbrace \\
+& \propto \mathcal{VM}(\beta_0 \vert \bar\psi, R_{\psi} \kappa).
+\end{align*}
+
+
+
+
+
+\bibliographystyle{apacite}
+\bibliography{C:/Dropbox/LiteratureCircular/CircularData}
 
 \end{document}

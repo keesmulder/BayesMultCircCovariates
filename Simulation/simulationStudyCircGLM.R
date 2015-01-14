@@ -1,9 +1,4 @@
 
-# TODO: Make system that saves results to file, checks if the data is already
-# there
-
-# TODO: Try, at least, to get alglib working.
-
 
 # source("Code/describeCirc.R")
 source("Data/generateCircularGLMData.R")
@@ -14,6 +9,18 @@ library(magrittr)
 library(dplyr)
 
 
+print.cGLMSim <- function(res,
+                          selection=c('n', 'kp',
+                                      'kp_mean', 'kp_mode', 'kp_in_HDI',
+                                      'b0_bias', 'bt_1_mean', 'crashed')) {
+  for (i in 1:length(res)) {
+    cat("\n\n", names(res)[i], "\n")
+    print(res[[i]] %>%
+            tbl_df() %>%
+            select(n, kp,
+                   kp_mean, kp_mode, kp_in_HDI, b0_bias, bt_1_mean, crashed))
+  }
+}
 
 # Returns whether an angle th is in circular interval CI. The interval must be
 # supplied as {lower bound, upper bound}.
@@ -25,7 +32,8 @@ angleInCircInterval <- function (th, CI) {
 
 # output options: 'array', 'df', and 'full'.
 simStudyCircGLM <- function(truens, truekps, betaDesigns,
-                            nsim = 100, output="array", saveResults=TRUE,
+                            nsim = 100, output="array",
+                            saveResults=TRUE, overwrite = TRUE,
                             seed=489734,
                             mcmcpar=list(conj_prior = rep(0, 3),
                                          Q=10000,
@@ -47,6 +55,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
   # Final result.
   simStudyResults  <- list()
 
+
   btDesName <-  paste0("(bt)",
                        paste0(sapply(betaDesigns,
                                      function(x) paste0(names(x)[1], "=", paste(x[[1]], collapse=","))),
@@ -59,8 +68,14 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
   simFilePath <- paste0(getwd(), "/Simulation/Results/", simFileName)
 
   if(file.exists(simFilePath)&saveResults) {
-    warning(paste("Simulation file", simFileName, "already existed."))
-    invisible(return(NULL))
+    cat("Simulation file:\n\n", simFileName, "\n\nalready existed. ")
+    if (!overwrite) {
+      cat("Returning previous file.")
+      load(simFilePath)
+      return(simStudyResults)
+    } else {
+      cat("Overwriting.")
+    }
   }
 
   # Total number of designs and a counter, to be used for progressbar.
@@ -92,7 +107,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
     nBtOutcomes    <- 6
 
     # Amount of outcomes that do not involve beta.
-    nNonBtOutcomes <- 18
+    nNonBtOutcomes <- 19
 
     # Total number outcomes.
     nOutcomes      <- nNonBtOutcomes + nbts*nBtOutcomes
@@ -168,36 +183,47 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
         X  <- as.matrix(d[, -1])
         K  <- ncol(X)
 
-        curSimRes <- do.call(circGLM,
-                             c(list(th=th, X=X, output="vector"), curPar))
 
-        bt_means <- curSimRes[grep("bt.*mean", names(curSimRes))]
-        bt_LBs   <- curSimRes[grep("bt.*LB",   names(curSimRes))]
-        bt_UBs   <- curSimRes[grep("bt.*UB",   names(curSimRes))]
+        tryCatch({
 
-        bt_bias        <- bt_means - curDesign$bt[[1]]
-        names(bt_bias) <- paste0("bt_", 1:nbts, "_bias")
+          curSimRes <- do.call(circGLM,
+                               c(list(th=th, X=X, output="vector"), curPar))
 
-        bt_in_CCI <- curDesign$bt[[1]] > bt_LBs & curDesign$bt[[1]] < bt_UBs
-        names(bt_in_CCI) <- paste0("bt_", 1:nbts, "_in_CCI")
+          bt_means <- curSimRes[grep("bt.*mean", names(curSimRes))]
+          bt_LBs   <- curSimRes[grep("bt.*LB",   names(curSimRes))]
+          bt_UBs   <- curSimRes[grep("bt.*UB",   names(curSimRes))]
 
-        b0_CCI <- curSimRes[grep("^b0_CCI", names(curSimRes))]
+          bt_bias        <- bt_means - curDesign$bt[[1]]
+          names(bt_bias) <- paste0("bt_", 1:nbts, "_bias")
 
+          bt_in_CCI <- curDesign$bt[[1]] > bt_LBs & curDesign$bt[[1]] < bt_UBs
+          names(bt_in_CCI) <- paste0("bt_", 1:nbts, "_in_CCI")
 
+          b0_CCI <- curSimRes[grep("^b0_CCI", names(curSimRes))]
 
-        # True beta_0 should always be generated as pi/2.
-        biasCvgRes <- c("b0_bias"      = curSimRes[['b0_meandir']] - pi/2,
-                        "b0_in_CCI"    = angleInCircInterval(pi/2, b0_CCI),
-                        "kp_mean_bias" = curSimRes[['kp_mean']] - curDesign$kp,
-                        "kp_mode_bias" = curSimRes[['kp_mode']] - curDesign$kp,
-                        "kp_in_HDI"    = curDesign$kp > curSimRes[['kp_HDI_LB']] &
-                          curDesign$kp < curSimRes[['kp_HDI_UB']],
-                        bt_bias,
-                        bt_bias_meanOverBt = mean(bt_bias),
-                        bt_in_CCI,
-                        bt_in_CCI_meanOverBt = mean(bt_in_CCI))
+          # True beta_0 should always be generated as pi/2.
+          biasCvgRes <- c("b0_bias"      = curSimRes[['b0_meandir']] - pi/2,
+                          "b0_in_CCI"    = angleInCircInterval(pi/2, b0_CCI),
+                          "kp_mean_bias" = curSimRes[['kp_mean']] - curDesign$kp,
+                          "kp_mode_bias" = curSimRes[['kp_mode']] - curDesign$kp,
+                          "kp_in_HDI"    = curDesign$kp > curSimRes[['kp_HDI_LB']] &
+                            curDesign$kp < curSimRes[['kp_HDI_UB']],
+                          bt_bias,
+                          bt_bias_meanOverBt = mean(bt_bias),
+                          bt_in_CCI,
+                          bt_in_CCI_meanOverBt = mean(bt_in_CCI),
+                          crashed = FALSE)
 
-        curCombinedRes <- c(curSimRes, biasCvgRes)
+          curCombinedRes <- c(curSimRes, biasCvgRes)
+
+        }, error = function (e) {
+
+          cat("\n Error in ", curReadDir, "/nr", isim, ".csv", ":\n", paste(e))
+
+          curCombinedRes <<- rep(NA, nOutcomes)
+          curCombinedRes[nOutcomes] <<- TRUE
+        })
+
 
         curDgnRes[isim, ] <- curCombinedRes
 
@@ -219,7 +245,6 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
 
       } # End of 1:nsim loop.
 
-
       # Set column names for results
       colnames(curDgnRes) <- names(curCombinedRes)
 
@@ -230,8 +255,8 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
       if (output == "array" | output == "df") {
 
         summaryThisDesignRes <- c("b0_meandir" =
-                                    computeMeanDirection(curDgnRes[, 1]),
-                                  apply(curDgnRes[, -1], 2, mean))
+                                  computeMeanDirection(na.omit(curDgnRes[, 1])),
+                                  apply(curDgnRes[, -1], 2, mean, na.rm=TRUE))
 
         # Place the results in the output-files.
         if (output == "array") {
@@ -263,6 +288,10 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
 
 
   } # End of betaDesigns loop.
+
+  if (output == "df" | output == "dataframe") {
+    class(simStudyResults) <- c("cGLMSim", class(simStudyResults))
+  }
 
   if (saveResults) {
     save(simStudyResults, file = simFilePath)

@@ -2,13 +2,42 @@ library(Rcpp)
 library(dplyr)
 sourceCpp('DataAnalysis/circGLM.cpp')
 
+logBesselI <- function(nu, x) log(besselI(x, nu, expon.scaled = TRUE)) + x
 
-plot.circGLM <- function(m) {
-  par(mfrow = c(2,3))
+# Finding nice dimensions for printing a grid of plots.
+# n is the number of plots to be printed, tasp is the target aspect ratio.
+findPlotGridForm <- function(n, tasp) {
+  div <- seq_len(n)
+  ftr <- div[n %% div == 0]
+
+  if (n==1) return(c(1, 1))
+  if (n==2) return(c(1, 2))
+
+  # If prime, try again with n+1
+  if (length(ftr) < 3) {
+    return(plotblock(n+1, tasp))
+
+    # Otherwise figure out which factor provides an aspect ratio closest to the
+    # target.
+  } else {
+    asps <- ftr^2/n
+    chs <- ftr[which.min(abs(log(asps) - log(tasp)))]
+    return(c(n/chs, chs))
+  }
+}
+
+
+plot.circGLM <- function(m, tasp=1) {
 
   if (is.null(m$b0_chain)) {
     warning("No posterior sample saved for this result.")
   } else {
+
+
+    # Find nice dimensions of the grid of plots.
+    npanel <- min(ncol(m$bt_chain)+2, 16)
+    mfr <- findPlotGridForm(npanel, tasp)
+    old.par <- par(mfrow = mfr, mar=c(2.5,4,2,1))
 
     # If the chain is reasonably small, plot the whole chain.
     if (m$SavedIts < 5000) {
@@ -28,11 +57,10 @@ plot.circGLM <- function(m) {
             function(btchain) plot.ts(x=idx, y=btchain, xy.lines=TRUE,
                                       xlab="Iteration", ylab="Beta", pch=NA, main="Beta chain"))
     }
+    par(old.par)
   }
 
-  par(mfrow = c(1,1))
 }
-
 
 
 # Print the results, but never the elements with the full posteriors.
@@ -69,7 +97,7 @@ circGLM <- function(th, X, conj_prior, bt_prior, starting_values,
 
   # Drop each superfluous dimension, which are a result of Rcpp's treatment of
   # Armadillo's arma::mat and arma::vec objects.
-  res %<>% lapply(drop)
+#   res %<>% lapply(drop)
 
   # Set some names for clarity in the output.
   names(res$b0_CCI)     <- c("LB", "UB")

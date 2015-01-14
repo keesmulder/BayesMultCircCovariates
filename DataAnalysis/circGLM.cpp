@@ -34,9 +34,6 @@ using namespace std;
 using namespace arma;
 
 
-
-
-
 // TODO:
 // Check if quantiles are obtained properly.
 
@@ -485,7 +482,7 @@ Rcpp::List circGLMC(vec th, mat X,
 
 
 
-    etag = - R_psi * cos(b0_cur - psi_bar);
+    etag    = - R_psi * cos(b0_cur - psi_bar);
     sk_res  = sampleKappa(etag, n_post);
     kp_cur  = sk_res(0);
 
