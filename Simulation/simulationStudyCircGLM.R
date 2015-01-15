@@ -1,6 +1,3 @@
-
-
-# source("Code/describeCirc.R")
 source("Data/generateCircularGLMData.R")
 source("DataAnalysis/circGLM.R")
 
@@ -9,14 +6,16 @@ library(magrittr)
 library(dplyr)
 
 
+# Method for printing simulation results.
 print.cGLMSim <- function(res,
                           selection=c('n', 'kp',
+                                      'b0_meandir', 'b0_in_CCI'
                                       'kp_mean', 'kp_mode', 'kp_in_HDI',
-                                      'b0_bias', 'bt_1_mean', 'crashed')) {
+                                      'bt_1_mean', 'bt_1_in_CCI', 'crashed')) {
   for (i in 1:length(res)) {
-    cat("\n\n", names(res)[i], "\n")
+    cat("\n\n(", i, ") Betadesign: ", names(res)[i], "\n", sep = "")
     print(res[[i]] %>%
-            tbl_df() %>%
+#             tbl_df() %>%
             select(n, kp,
                    kp_mean, kp_mode, kp_in_HDI, b0_bias, bt_1_mean, crashed))
   }
@@ -32,7 +31,7 @@ angleInCircInterval <- function (th, CI) {
 
 # output options: 'array', 'df', and 'full'.
 simStudyCircGLM <- function(truens, truekps, betaDesigns,
-                            nsim = 100, output="array",
+                            nsim = 100,
                             saveResults=TRUE, overwrite = TRUE,
                             seed=489734,
                             mcmcpar=list(conj_prior = rep(0, 3),
@@ -115,34 +114,17 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
     # Make a template in which we can store output for this betadesign.
     outputTemplate <- matrix(NA, nr=nsim, nc=nOutcomes)
 
-    # Make an empty array for the output if asked for, otherwise empty matrix.
-    if (output == "array") {
-      thisBtdesArray <- array(NA, c(length(truens),
-                                    length(truekps),
-                                    nOutcomes),
-                              dimnames=list(truens,
-                                            truekps,
-                                            NULL))
-
-    } else if (output == "df" | output == "dataframe") {
-      thisBtdesRight <- data.frame(matrix(NA,
-                                          nr=ndesigns,
-                                          nc=nOutcomes))
-      thisBtdesDf    <- cbind(designs, thisBtdesRight)
-
-    } else if (output == "full"){
-      thisBtdesFullArray <- array(NA, c(nsim,
-                                        nOutcomes,
-                                        length(truens),
-                                        length(truekps)),
-                                  dimnames=list(1:nsim,
-                                                NULL,
-                                                truens,
-                                                truekps))
-    } else {
-      stop("Unrecognized output type")
-    }
-
+    thisBtdesDf    <- cbind(designs, data.frame(matrix(NA,
+                                                       nr=ndesigns,
+                                                       nc=nOutcomes)))
+    thisBtdesFullArray <- array(NA, c(nsim,
+                                      nOutcomes,
+                                      length(truens),
+                                      length(truekps)),
+                                dimnames=list(1:nsim,
+                                              NULL,
+                                              truens,
+                                              truekps))
 
     # Now go through all the other elements of the design.
     for (idesign in 1:ndesigns) {
@@ -252,46 +234,29 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
 
       # Unless we are saving information from every simulation, we summarize the
       # results over 1:nsim results which are in curDgnRes.
-      if (output == "array" | output == "df") {
-
-        summaryThisDesignRes <- c("b0_meandir" =
+      summaryThisDesignRes <- c("b0_meandir" =
                                   computeMeanDirection(na.omit(curDgnRes[, 1])),
-                                  apply(curDgnRes[, -1], 2, mean, na.rm=TRUE))
+                                apply(curDgnRes[, -1], 2, mean, na.rm=TRUE))
 
-        # Place the results in the output-files.
-        if (output == "array") {
-          thisBtdesArray[as.character(curDesign$n),
-                         as.character(curDesign$kp), ] <- summaryThisDesignRes
-        } else if (output == "df") {
-          thisBtdesDf[idesign, -(1:6)] <- summaryThisDesignRes
-        }
+      thisBtdesDf[idesign, -(1:6)] <- summaryThisDesignRes
 
-        # For the full output, we place the full results into the large array.
-      } else if (output == "full") {
-        thisBtdesFullArray[, , as.character(curDesign$n),
-                           as.character(curDesign$kp)] <- curDgnRes
-      }
-
+      # For the full output, we place the full results into the large array.
+      thisBtdesFullArray[, , as.character(curDesign$n),
+                         as.character(curDesign$kp)] <- curDgnRes
 
     } # End of 1:ndesigns loop.
 
     btdesName <- paste(names(curTrueBts), "=", curTrueBts)
 
-    if (output == "array") {
-      simStudyResults[[btdesName]] <- thisBtdesArray
-    } else if (output == "df" | output == "dataframe") {
-      colnames(thisBtdesDf)[-(1:6)] <- names(summaryThisDesignRes)
-      simStudyResults[[btdesName]] <- thisBtdesDf
-    } else if (output == "full"){
-      simStudyResults[[btdesName]] <- thisBtdesFullArray
-    }
+    colnames(thisBtdesDf)[-(1:6)] <- names(summaryThisDesignRes)
+    simStudyResults[[btdesName]] <- thisBtdesDf
 
+    dimnames(thisBtdesFullArray)[[2]] <- names(summaryThisDesignRes)
+    attr(simStudyResults[[btdesName]], "full") <- thisBtdesFullArray
 
   } # End of betaDesigns loop.
 
-  if (output == "df" | output == "dataframe") {
-    class(simStudyResults) <- c("cGLMSim", class(simStudyResults))
-  }
+  class(simStudyResults) <- c("cGLMSim", class(simStudyResults))
 
   if (saveResults) {
     save(simStudyResults, file = simFilePath)

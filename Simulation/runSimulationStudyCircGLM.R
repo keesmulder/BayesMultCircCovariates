@@ -17,7 +17,7 @@ truebts <- sapply(1:length(nbts), function(i) {
   out
 })
 
-nsim <- 10
+nsim <- 5
 
 # Save the datasets as .csv files.
 saveCircGLMDatasets(truens = truens, truekps = truekps, truebts = truebts,
@@ -25,7 +25,7 @@ saveCircGLMDatasets(truens = truens, truekps = truekps, truebts = truebts,
 
 # General MCMC parameters.
 mcmcpar=list(conj_prior = rep(0, 3), bt_prior_type=1,
-             Q=20000, burnin = 500, lag = 1,
+             Q=1000, burnin = 500, lag = 1,
              kappaModeEstBandwith=.05, CIsize=.95,
              r=2)
 
@@ -43,12 +43,17 @@ betaDesigns <- lapply(1:length(nbts), function(i){
 simres <- simStudyCircGLM(nsim = nsim,
                        truens = truens, truekps = truekps,
                        betaDesigns = betaDesigns, overwrite=TRUE,
-                       output = "full", seed = 389238, mcmcpar = mcmcpar)
+                       seed = 389238, mcmcpar = mcmcpar)
 
 simres
 
-
-
+# str(simres)
+#
+# str(attr(simres[[5]], "full"))
+# names(attr(simres[[5]], "full"))
+#
+#
+# attr(simres[[5]], "full")[, , "12", "30"]
 
 
 
