@@ -86,31 +86,36 @@ For $\beta_0$ and $\kappa$, a conjugate prior will be used. Setting $\psi_i = \t
 \begin{equation}
 p(\mu_{\psi}, \kappa) \propto  I_0 (\kappa) ^{-c} \exp\{R_0 \kappa \cos (\mu_{\psi} - \mu_0)\},
 \end{equation}
-where $\mu_{\psi}$ represents the mean direction of the set of angles $\boldsymbol\psi$,  which represents $c$ observations of $\psi$ with prior mean direction $\mu_0$ and prior resultant length $R_0$. Note, however, that in this case this represents our prior information regarding the distribution of $\psi$ rather than $\theta$. It is unlikely that prior expectations to exist about $\mu_{\psi}$ and $\kappa$, but this method does allow easy specification of a non-informative prior by setting $R_0 = 0$ and $c = 0$. 
+where $\mu_{\psi}$ represents the mean direction of the set of angles $\boldsymbol\psi$,  which represents $c$ observations of $\psi$ with prior mean direction $\mu_0$ and prior resultant length $R_0$. Note, however, that in this case this represents our prior information regarding the distribution of $\psi$ rather than $\theta$. Researchers may or may not be able to formulate prior expectations exist about $\mu_{\psi}$ and $\kappa$. Regardless, this method allows straightforward specification of a non-informative prior by setting $R_0 = 0$ and $c = 0$. 
 
 For each $\beta$, a normal prior will be specified as 
 \begin{equation}
 \beta \sim N(0, 10).
 \end{equation}
 
+This choice of prior will be examined in the following section. 
 
 \subsection{Shape of the conditional likelihood of $\beta$}
+
+Due to the periodical nature of the outcome variable $\theta$, the conditional posterior of any $\beta_j$ may have more than one maximum. In this section, this issue will be explored. 
 
 
 
 
 \section{MCMC Sampling}
 
+
+
 \begin{algorithm}[H]
 % \KwData{this text}
 % \KwResult{how to write algorithm with \LaTeX2e }
  For each $\beta_j$, select an appropriate bandwith $b_j.$
  
- Set $\boldsymbol{\beta}$ and $\kappa$ to their starting values.
+ Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.
  
  $m = n + c.$
  
- \For{$i \leftarrow 1$ \KwTo $Q$}{
+ \For{$i \leftarrow 2$ \KwTo $Q$}{
  
 %  \tcc{Sample $\beta_0$}
   
@@ -119,6 +124,11 @@ For each $\beta$, a normal prior will be specified as
   Compute $\bar\psi$ and $R_{\psi}.$
   
   Draw $\beta_0^{(i)} \sim \mathcal{VM}(\bar\psi, R_{\psi} \kappa).$
+  
+  
+  $\eta = - R_\psi * \cos\left(\beta_0 - \bar{\psi}\right).$
+    
+  $\kappa^{(i)} = \texttt{sampleKappa}(\eta, m).$ 
   
   \For{$j \leftarrow 1$ \KwTo $K$}{
   
@@ -141,10 +151,6 @@ For each $\beta$, a normal prior will be specified as
   	  }
   
 }  
-
-  $\eta = - R_\psi * \cos\left(\beta_0 - \bar{\psi}\right).$
-  
-  $\kappa^{(i)} = \texttt{sampleKappa}(\eta, m).$ 
 
   }
  \caption{An algorithm for the given GLM approach}

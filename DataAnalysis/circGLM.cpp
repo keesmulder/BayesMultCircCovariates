@@ -37,6 +37,7 @@ using namespace arma;
 // TODO:
 // Check if quantiles are obtained properly.
 
+// [[Rcpp::export]]
 vec atanlf(vec x, double r) {
   // arctangent-family link function, spreading range range, where c=1
   // corresponds to the semicircle, and c=2 is most common.
@@ -332,7 +333,6 @@ double ll(double b0, double kp, vec bt,
   int n = th.size();
 
   // The left-hand side of the likelihood function.
-  std::cout << kp << std::endl;
   double lhs = - n * log(boost::math::cyl_bessel_i(0, kp));
 
   // The right-hand side of the likelihood function.
@@ -443,7 +443,14 @@ Rcpp::List circGLMC(vec th, mat X,
     // Obtain a new value for Beta_0
     b0_cur = rvmc(1, psi_bar, R_psi * kp_cur)[0];
 
-    // Draw candidates, in sequence, for each of the K predictors.
+    // Sample a new value for kappa.
+    etag    = - R_psi * cos(b0_cur - psi_bar);
+    sk_res  = sampleKappa(etag, n_post);
+    kp_cur  = sk_res(0);
+
+
+    // Draw and possibly accept candidates, in sequence, for each of the K
+    // predictors.
     for(int k = 0; k < K; k++) {
 
       bt_can(k) += runif(1, -bwb(k), bwb(k))[0];
@@ -480,10 +487,6 @@ Rcpp::List circGLMC(vec th, mat X,
       }
     }
 
-    // Sample a new value for kappa.
-    etag    = - R_psi * cos(b0_cur - psi_bar);
-    sk_res  = sampleKappa(etag, n_post);
-    kp_cur  = sk_res(0);
 
     // After we are done with the burn-in, start gathering the amount of nAttempts
     // that we need every time.
