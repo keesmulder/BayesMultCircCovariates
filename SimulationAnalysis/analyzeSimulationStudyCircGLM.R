@@ -1,0 +1,139 @@
+generateBetaShapePlot <- function(b0_cur = pi, true_b0 = pi, true_bt = 1, true_kp = 20, Xsd=4, n = 100, xl = c(-8, 8), add=1.5) {
+
+  # Data generation
+  X       <- matrix(rnorm(n, sd=Xsd))
+  err     <- rvmc(n, mu = 0, kp = true_kp)
+  th      <- (true_b0 + linkfun(true_bt * X) + err) %% (2*pi)
+
+  par(mfrow=c(2, 2))
+
+  # Show generated data
+  xh <- makeProp(X)
+
+  plotCircular(th)
+  plot(X, th, main = paste0("True: beta_0=", round(true_b0, 2), ", beta=", round(true_bt, 2), ", kappa=", round(true_kp, 2)), ylim=c(0, 2*pi))
+
+  # Main part of the loglikelihood function.
+  Rllfun <- function(bt) sum(cos(th - b0_cur - linkfun(apply(X, 1, "%*%", bt))))
+
+  llmax <- optimize(f = function(x) Rllfun(x), interval = xl, maximum = TRUE)$maximum
+  llmin <- optimize(f = function(x) Rllfun(x), interval = xl, maximum = FALSE)$minimum
+
+  b0s <- c(b0_cur, b0_cur, b0_cur, b0_cur)
+  bts <- c(llmin, llmax, -5, 5)
+
+  # Plot likelihood of beta at true mean and true kp, and add the extrema.
+  plot(Vectorize(function(x) Rllfun(x)), xlim=xl, main=paste("Shape of Log-Likelihood of Beta when Beta_0 =", round(b0_cur, 2)), xlab=expression(beta), ylab="Log-Likelihood")
+  abline(v=bts, col=2:(length(bts)+1), lwd=2.5)
+
+
+  shift <- function(th, shift) ((th + shift) %% (2*pi)) - shift
+
+  dif <- pi - b0_cur
+
+  sth <- shift(th, dif)
+
+  underth <- sth < (add - dif)
+  overth  <- sth > (2*pi-(add+dif))
+
+  dth <- c(sth[underth] + (2*pi), sth, sth[overth] - (2*pi))
+  dX  <- c(X[underth, ], as.vector(X), X[overth, ])
+
+  # Plot predictions for different beta's
+  plot(dX, dth, xlim=c(min(X), max(X)), ylim = b0_cur + c(-(pi+add), pi+add),
+       main=paste("Given current beta_0 =", round(b0_cur, 2)),
+       ylab="Theta/Predicted Theta (Shifted)", xlab="X")
+  abline(h=b0_cur + c(-pi, pi), col="grey60", lty = 3, lwd=3)
+
+  for (i in seq(b0s)) {
+    estth <- function(x) shift(b0s[i] + linkfun(bts[i]*x), dif)
+    curve(estth, add=TRUE, col=i+1, lwd=2.5)
+  }
+  abline(h=b0_cur, col="purple", lty = 2)
+
+  par(mfrow=c(1, 1))
+}
+
+
+
+
+
+source('Data/generateCircularGLMData.R')
+source('Simulation/simulationStudyCircGLM.R')
+
+load("Simulation/Results/[simStudCircGLM]__[(nsim)1000]__[(n)12,100]__[(kp)0.5,30]__[(bt)l=0.1_l=-1_lll=0.1,0.1,0.1_lll=-1,-1,-1_lllllllll=0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1_lllllllll=-1,-1,-1,-1,-1,-1,-1,-1,-1].rda")
+
+# Main results
+simStudyResults
+
+# Further inspection
+# (1), 12, 0.5, bt_1_mean seems wrong
+plot(simStudyResults, btDesNumber=1, n=12, kp=0.5, stat="bt_1_mean", breaks=100)
+# There is just tons of variance.
+
+# (2), 12, 0.5, bt_1_mean seems wrong
+plot(simStudyResults, btDesNumber=2, n=12, kp=0.5, stat="bt_1_mean", breaks=100)
+# There is just tons of variance.
+
+
+# Serious problems start with (4).
+# 100, 0.5, bt_1_mean is way off regardless of large sample size.
+plot(simStudyResults, btDesNumber=4, n=100, kp=0.5, stat="bt_1_mean", breaks=100)
+# There does not even seem to be a peak at -1.
+
+# 100, 30, shows the first b0 inversion.
+plot(simStudyResults, btDesNumber=4, n=100, kp=30, stat="b0_meandir", breaks=100)
+abline(v=pi/2, col="green")
+# You can even see that some values were in the process of inverting. Inversion
+# happens when large parts (>.5) of the predicted values are more than pi/2 away from
+# beta_0.
+
+plot(simStudyResults, btDesNumber=4, n=100, kp=30, stat="bt_1_mean", breaks=100)
+# Here it is clear that there is an inverted group and that there is a
+# non-inverted group.
+
+# Further demonstration.
+plot(slice.cGLMSim(simStudyResults,
+                   btDesNumber=4, n=100, kp=30, stat="b0_meandir"),
+     slice.cGLMSim(simStudyResults,
+                   btDesNumber=4, n=100, kp=30, stat="bt_1_mean"),
+     xlab="beta_0", ylab="bt_1")
+
+
+# (5) n=12, kp=0.5, features inversions, but is mostly all over the place.
+plot(simStudyResults, btDesNumber=5, n=12, kp=0.5, stat="b0_meandir", breaks=100)
+plot(simStudyResults, btDesNumber=5, n=12, kp=0.5, stat="bt_1_mean", breaks=100)
+
+# The estimate for kappa is influenced by several large values, which makes
+# sense with nine predictors and n=12.
+plot(simStudyResults, btDesNumber=5, n=12, kp=0.5, stat="kp_mode", breaks=100)
+
+# With n=100 the inversions happen more than half of the time.
+plot(simStudyResults, btDesNumber=5, n=100, kp=0.5, stat="b0_meandir", breaks=100)
+
+# Only a few errors with kp=30.
+plot(simStudyResults, btDesNumber=5, n=12, kp=30, stat="b0_meandir", breaks=100)
+
+# No errors when n=100 as well.
+plot(simStudyResults, btDesNumber=5, n=100, kp=30, stat="b0_meandir", breaks=100)
+
+# Kappa is messed up, though, because of n=12 with 9 preds.
+plot(simStudyResults, btDesNumber=5, n=12, kp=30, stat="kp_mode", breaks=100)
+
+# n=100 solves this.
+plot(simStudyResults, btDesNumber=5, n=100, kp=30, stat="kp_mode", breaks=100)
+
+generateBetaShapePlot(b0_cur = pi/2, true_b0 = pi/2, true_bt = -1, Xsd = 1, n = 100)
+
+slice.cGLMSim(simStudyResults, btDesNumber=3, n=12, kp=0.5, stat="kp_mode")
+plot(simStudyResults, btDesNumber=3, n=12, kp=30, stat="kp_mode", breaks=100)
+plot(simStudyResults, btDesNumber=3, n=100, kp=30, stat="kp_mode", breaks=100)
+
+# Definitely inversion here.
+plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="b0_meandir", breaks=100)
+plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="kp_mode", breaks=100)
+plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="bt_1_mean", breaks=100)
+
+simStudyResults
+
+

@@ -428,10 +428,10 @@ Rcpp::List circGLMC(vec th, mat X,
 
   for (int i = 0; i < Qbylag; i++)
   {
+
     // Obtain an n*K matrix with beta_k * x_{i, k} in each cell.
     X_bybt  = X;
     X_bybt.each_row() %= bt_cur;
-
 
     // Obtain psi and its current properties.
     psi     = th - atanlf(sum(X_bybt, 1), r);
@@ -448,6 +448,7 @@ Rcpp::List circGLMC(vec th, mat X,
 
       bt_can(k) += runif(1, -bwb(k), bwb(k))[0];
 
+      // Get the MH-ratio for constant prior or normal prior.
       if (bt_prior_type == 0)
       {
         bt_lograt = rhsll(b0_cur, kp_cur, bt_can, th, X, r) -
@@ -466,8 +467,7 @@ Rcpp::List circGLMC(vec th, mat X,
                                             bt_prior.col(1)));
       }
 
-
-
+      // Accept the candidate according to the MH-ratio.
       if (bt_lograt > log(runif(1, 0, 1)[0]))
       {
         bt_cur(k) = bt_can(k);
@@ -480,8 +480,7 @@ Rcpp::List circGLMC(vec th, mat X,
       }
     }
 
-
-
+    // Sample a new value for kappa.
     etag    = - R_psi * cos(b0_cur - psi_bar);
     sk_res  = sampleKappa(etag, n_post);
     kp_cur  = sk_res(0);

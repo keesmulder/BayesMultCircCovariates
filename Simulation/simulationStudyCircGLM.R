@@ -8,17 +8,33 @@ library(dplyr)
 
 # Method for printing simulation results.
 print.cGLMSim <- function(res,
-                          selection=c('n', 'kp',
-                                      'b0_meandir', 'b0_in_CCI'
+                          selection=list('n', 'kp',
+                                      'b0_meandir', 'b0_in_CCI',
                                       'kp_mean', 'kp_mode', 'kp_in_HDI',
                                       'bt_1_mean', 'bt_1_in_CCI', 'crashed')) {
+
   for (i in 1:length(res)) {
-    cat("\n\n(", i, ") Betadesign: ", names(res)[i], "\n", sep = "")
-    print(res[[i]] %>%
-#             tbl_df() %>%
-            select(n, kp,
-                   kp_mean, kp_mode, kp_in_HDI, b0_bias, bt_1_mean, crashed))
+    cat("\n(", i, ") Betadesign: ", gsub('c\\(', "(", names(res)[i]), "\n", sep = "")
+    print(do.call(select_, c(list(res[[i]]), .dots = list(selection))))
   }
+}
+
+# Method for obtaining a single vector of length nsim, containing results from a
+# single statistic for a design of the simulation study.
+slice.cGLMSim <- function(res, btDesNumber, n, kp, stat) {
+  attr(res[[btDesNumber]], "full")[,
+                                   stat,
+                                   as.character(n),
+                                   as.character(kp)]
+}
+
+# Method for plotting simulation results.
+plot.cGLMSim <- function(res, btDesNumber, n, kp, stat, ...) {
+  mn <- paste0("Histogram of ", stat, " from Betadesign (", btDesNumber,
+               "), n=", n, ", ", "kappa=", kp, ". ")
+
+  hist(slice.cGLMSim(res, btDesNumber, n, kp, stat),
+       main=mn, xlab=stat, ...)
 }
 
 # Returns whether an angle th is in circular interval CI. The interval must be
@@ -55,15 +71,29 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
   simStudyResults  <- list()
 
 
-  btDesName <-  paste0("(bt)",
+  btDesName <-  paste0("bt",
                        paste0(sapply(betaDesigns,
-                                     function(x) paste0(names(x)[1], "=", paste(x[[1]], collapse=","))),
-                              collapse="_"))
+                                     function(x) {
+                                       if (length(unique(x[[1]])) == 1) {
+                                         return(paste0(names(x)[1],
+                                                "=", x[[1]][1], collapse=","))
+                                       } else {
+                                         return(paste0(names(x)[1], "=",
+                                                paste(x[[1]], collapse=",")))
+                                       }
+                                     }
+                       ),
+                       collapse=","))
   simFileName <- paste("[simStudCircGLM",
-                        paste0("(nsim)", nsim),
-                        paste0("(n)", paste(truens,  collapse=",")),
-                        paste0("(kp)", paste(truekps, collapse=",")),
-                        paste0(btDesName, "].rda"), sep = "]__[")
+                        paste0("nsim", nsim),
+                        paste0("Q", mcmcpar$Q),
+                        paste0("burnin", mcmcpar$burnin),
+                        paste0("r", mcmcpar$r),
+                        paste0("bt_prior", mcmcpar$bt_prior_type),
+                        paste0("seed", seed),
+                        paste0("n", paste(truens,  collapse=",")),
+                        paste0("kp", paste(truekps, collapse=",")),
+                        paste0(btDesName, "].rda"), sep = "][")
   simFilePath <- paste0(getwd(), "/Simulation/Results/", simFileName)
 
   if(file.exists(simFilePath)&saveResults) {
@@ -257,6 +287,9 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
   } # End of betaDesigns loop.
 
   class(simStudyResults) <- c("cGLMSim", class(simStudyResults))
+  attr(simStudyResults, 'call') <- match.call()
+  attr(simStudyResults, 'args') <- lapply(match.call()[-1], eval)
+
 
   if (saveResults) {
     save(simStudyResults, file = simFilePath)

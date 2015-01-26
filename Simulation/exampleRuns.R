@@ -17,7 +17,7 @@ mcmcpar <- list(conj_prior = rep(0, 3),
              lag = 1,
              kappaModeEstBandwith=.05,
              CIsize=.95,
-             Q=300000,
+             Q=3000,
              r=2,
              bt_prior_type=0)
 res <- do.call(circGLM, c(list(th=d[,1, drop=FALSE], X=d[,-1, drop=FALSE],

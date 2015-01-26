@@ -317,7 +317,7 @@ K       <- ncol(X)
 se <- mcmcGCM(th = th, X = X, linkfun = linkfun, invlinkfun = invlinkfun,
               b0_start=true_b0, bt_start=c(0, 0))
 
-par(mfrow=c(2,2))
+par(mfrow=c(2, 2))
 
 # # Plot sample results
 plot.ts(se$b0 %% (2*pi), main="Beta_0")
