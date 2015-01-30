@@ -1,5 +1,3 @@
-rm(list=ls())
-
 source('Data/generateCircularGLMData.R')
 source("DataAnalysis/circGLM.R")
 
@@ -31,13 +29,13 @@ getdat <- function(fun, res = 100, xl = c(-10, 10), ...) {
 plotbeta <- function(th, X, normalPrior=FALSE, res = 100, xl = c(-10, 10),
                      b0 = pi/2, kp = 1, bt = b, r = 2, mu=0, sd=10) {
 
-  if (normalPrior) {
+  if (!normalPrior) {
     betall <- Vectorize(function (b) {
       ll(b0 = b0, kp = kp, bt = b, th = th, X = X, r = r)
     })
   } else {
     betall <- Vectorize(function (b) {
-      ll(b0 = b0, kp = kp, bt = b, th = th, X = X, r = r) *
+      ll(b0 = b0, kp = kp, bt = b, th = th, X = X, r = r) +
         logProbNormal(b, mu, sd)
     })
   }
@@ -46,7 +44,9 @@ plotbeta <- function(th, X, normalPrior=FALSE, res = 100, xl = c(-10, 10),
 
   ggplot(aes(x=sq, y=ysq), data=d) +
     geom_line() +
-    geom_vline(xintercept=d$sq[which.max(d$ysq)], linetype = "dashed") + theme_bw()
+    geom_vline(xintercept=d$sq[which.max(d$ysq)], linetype = "dashed") +
+    theme_bw() +
+    ylab("Conditional Log-Likelihood of Beta") + xlab("Beta")
 
 }
 

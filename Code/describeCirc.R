@@ -1,3 +1,5 @@
+require(ggplot2)
+
 
 # FUNCTION trigMoment  ----------------------------------------------------
 # Calculates the (uncentered or centered) p-th sample trigonometric moment.
@@ -206,6 +208,66 @@ plotCircular <- function(th, alpha = 0.35, inputtype = "radians",
     }
   }
 }
+
+
+
+
+###
+### FUNCTION ggplotCircular
+###
+#
+#   th:           A numeric vector containing the angles in the sample.
+#                 By default, this is calculated in radians.
+#   alpha:        A numeric determining opaqueness of plotted points.
+#   type:         A string that is either "radians" or "degrees", the scale of th.
+#   plotMean:     A boolean determining whether the mean direction should be plotted.
+#   plotMoments:  A numeric determining how many moments should be plotted.
+# Returns:    A vector of length 4 containing the cosine and sine moments, as well as the
+#             mean direction and mean resultant length.
+ggplotCircular <- function(th, alpha = 0.35, inputtype = "radians",
+                         outputtype = "radians", plotMean = TRUE,
+                         col = rgb(0,0,0, alpha)) {
+
+  if (!require(plotrix)) stop("\n Package 'plotrix' must be installed! \n")
+
+  if (inputtype == "degrees") th <- th*(pi/180)
+
+  th_bar <- meanDir(th)
+
+  csq <- seq(0, 2*pi, length.out = 180)
+  xsq <- cos(csq)
+  ysq <- sin(csq)
+  dsq <- data.frame(xsq, ysq)
+
+  p <- ggplot(aes(x=xsq, y=ysq), data=dsq) +
+    geom_path() + coord_fixed() +
+    theme(panel.background = element_blank(),
+          line = element_blank(),
+          text = element_blank()) +
+    geom_path(aes(x=x, y=y),
+              data=data.frame(x=c(0, 1.05), y=c(0, 0)), colour="gray") +
+    geom_point(aes(x=cos(th), y=sin(th)), size=4, alpha=alpha, data=data.frame(th))
+
+  # Plot the mean
+  if (plotMean) {
+    meanTxt <- paste("Mean direction:",
+                     round(ifelse(outputtype == 'radians',
+                                  th_bar,
+                                  th_bar*(180/pi)), 3), outputtype)
+
+    p  <- p + geom_point(aes(cos(th_bar), sin(th_bar)),
+                         data=data.frame(th_bar), color= "skyblue3", pch = 19) +
+      geom_path(aes(x=x, y=y),
+                data=data.frame(x=c(0, cos(th_bar)), y=c(0, sin(th_bar))),
+                color= "skyblue3") +
+      geom_text(aes(x=x, y=y), label=meanTxt,
+                data=data.frame(x=0, y=-1.15), color= "skyblue3", size=5)
+  }
+  p
+}
+
+
+
 
 
 # Adds a vector of angels to the plot.
