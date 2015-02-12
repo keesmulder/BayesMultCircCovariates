@@ -13,6 +13,16 @@ print.cGLMSim <- function(res,
                                       'kp_mean', 'kp_mode', 'kp_in_HDI',
                                       'bt_1_mean', 'bt_1_in_CCI', 'crashed')) {
 
+  resdes <- attr(res, 'args')
+  cat("Simulation study results with number of simulations: ", resdes$nsim,
+      ". Iterations per dataset Q: ", resdes$mcmcpar$Q, ".",
+      "\nRange of the link function is r*pi, here r = ", resdes$mcmcpar$r,
+      ". Using a ", ifelse(resdes$mcmcpar$bt_prior_type,
+                         paste0("N(", resdes$betaDesigns[[1]]$bt_prior[1], ", ",
+                                      resdes$betaDesigns[[1]]$bt_prior[2], ")"),
+                         "constant"),
+      " prior for Beta.\n", sep="")
+
   for (i in 1:length(res)) {
     cat("\n(", i, ") Betadesign: ", gsub('c\\(', "(", names(res)[i]), "\n", sep = "")
     print(do.call(select_, c(list(res[[i]]), .dots = list(selection))))
@@ -256,17 +266,21 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
         setWinProgressBar(pb, isim, label=info)
 
       } # End of 1:nsim loop.
+      close(pb)
 
       # Set column names for results
       colnames(curDgnRes) <- names(curCombinedRes)
 
-      close(pb)
+      # Indices of the columns for which we must take the
+      circIdx <- which(colnames(curDgnRes) %in% c("b0_meandir", "b0_bias"))
 
       # Unless we are saving information from every simulation, we summarize the
       # results over 1:nsim results which are in curDgnRes.
       summaryThisDesignRes <- c("b0_meandir" =
-                                  computeMeanDirection(na.omit(curDgnRes[, 1])),
-                                apply(curDgnRes[, -1], 2, mean, na.rm=TRUE))
+                                  computeMeanDirection(na.omit(curDgnRes[, "b0_meandir"])),
+                                "b0_bias" =
+                                  computeMeanDirection(na.omit(curDgnRes[, "b0_bias"])),
+                                apply(curDgnRes[, -circIdx], 2, mean, na.rm=TRUE))
 
       thisBtdesDf[idesign, -(1:6)] <- summaryThisDesignRes
 

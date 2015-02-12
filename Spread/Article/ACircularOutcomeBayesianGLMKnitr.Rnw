@@ -88,7 +88,7 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 \section{Introduction}
 
-Circular data is data that is measured in angles or directions. They are frequently encountered in scientific fieldsas diverse as Molecular Biology, Cognitive Psychology, Political Science \citep{gill2010} and Earth Sciences. Circular data differ from linear data in the sense that circular data are measured in a periodical sample space. For example, an angle of $1^{\circ}$ is quite close to an angle $359^{\circ},$ although linear intuition would suggest otherwise.
+Circular data is data that is measured in angles or directions. They are frequently encountered in scientific fields as diverse as Molecular Biology, Cognitive Psychology, Political Science \citep{gill2010} and Earth Sciences. Circular data differ from linear data in the sense that circular data are measured in a periodical sample space. For example, an angle of $1^{\circ}$ is quite close to an angle $359^{\circ},$ although linear intuition would suggest otherwise.
 
 Because of this, linear models may not fully describe the process that has generated the circular data of interest. Circular data analysis has been developed to deal with this, but the attention to this type of data has been limited. Only slightly more than a handful of in-depth books on circular data analysis have been published \citep{fisher1995statistical,mardia1999directional,pewsey2013circular}, and statistical methods are generally fairly limited. The Bayesian paradigm, in particular MCMC methods, may provide a flexible new approach to analyzing circular data.
 
@@ -125,7 +125,7 @@ g(x) = 2 \tan^{-1}(x),
 \end{equation} because for this link function $g(0) = 0,$ and because its range is $\mathbb{S}^1$, which allows the predicted values across the entire circle. This link function is shown in figure \ref{linkfunc}. To ensure that the link function has the same form, all predictors must be standardized. % Mind you, it is probably better to add parameters to the model that account for mean and variance of the predictors. This might take into account the uncertainty about the mean and variance of the predictor?! Discuss.
 
 \begin{figure}
-{\centering \includegraphics[width=\linewidth]{figure/Link.pdf} }
+% {\centering \includegraphics[width=\linewidth]{figure/Link.pdf} }
 \caption{Link function $g(x) = 2 \tan^{-1}(x).$}
 \label{linkfunc}
 \end{figure}
@@ -173,7 +173,7 @@ For simplicity,
 
 Due to the periodical nature of the outcome variable $\theta$, the conditional likelihood of some $\beta_j$ may have not be globally concave and may have more than one maximum. In this section, this issue will be explored.
 
-First, consider a simple dataset, with a single predictor $\boldsymbol{X} = \left\lbrace -3, -2, \dots, 2, 3 \right\rbrace $ that was standardized, and $\theta_i = \frac{\pi}{2} + 2 \tan^{-1} (x_i) + \varepsilon,$ for each $ i \in 1, 2, \dots, 7,$ where $\varepsilon \sim \mathcal{N}(0, .1), so that true $\beta = 1$. The relationship between the predictor and circular outcome is shown in figure \ref{SimpleDataset}.
+First, consider a simple dataset, with a single predictor $\boldsymbol{X} = \left\lbrace -3, -2, \dots, 2, 3 \right\rbrace $ that was standardized, and $\theta_i = \frac{\pi}{2} + 2 \tan^{-1} (x_i) + \varepsilon,$ for each $ i \in 1, 2, \dots, 7,$ where $\varepsilon \sim \mathcal{N}(0, .1)$, so that true $\beta = 1$. The relationship between the predictor and circular outcome is shown in figure \ref{SimpleDataset}.
 
 \begin{figure}
 \label{SimpleDataset}
@@ -251,6 +251,7 @@ ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=0, kp=1, r=2, th=th, X=X
 ll2p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi/2, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Beta_0 = pi/2")
 ll3p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Beta_0 = pi")
 multiplot(ll1p1, ll2p1, ll3p1, cols=3)
+multiplot(ll1p1, ll2p1, ll3p1, cols=1)
 
 @
 \caption{RHS of conditional likelihood.}
@@ -260,35 +261,35 @@ multiplot(ll1p1, ll2p1, ll3p1, cols=3)
 
 
 <<SimpleplotMatrix, include=FALSE, eval=FALSE>>=
-res <- 100
-n <- 100
-X  <- scale(as.matrix(seq(-30, 30, length.out = 10)))
-X  <- scale(as.matrix(rnorm(n)))
-
-bt <- .3
-th <- pi + atanlf(bt*X, 2) + rnorm(n, 0, .1)
-
-d <- data.frame(th=th, X=X)
-
-
-b0cur <- 0
-xl <- c(-3, 3)
-cp1 <- ggplotCircular(th, plotMean=FALSE)
-dp1  <- ggplot(aes(x=X, y=th), data=d) + geom_point() + myTheme() + ylab(expression(theta))
-ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Constant prior")
-ll2p1 <- plotbeta(normalPrior=TRUE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X, sd=.3) + myTheme() + labs(title="N(0, .3) prior")
-
-multiplot(cp1, dp1, ll1p1, ll2p1, cols=2)
-
-b0cur <- pi
-xl <- c(-3, 3)
-
-cp1 <- ggplotCircular(th, plotMean=FALSE)
-dp1  <- ggplot(aes(x=X, y=th), data=d) + geom_point() + myTheme() + ylab(expression(theta))
-ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Constant prior")
-ll2p1 <- plotbeta(normalPrior=TRUE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X, sd=.3) + myTheme() + labs(title="N(0, .3) prior")
-
-multiplot(cp1, dp1, ll1p1, ll2p1, cols=2)
+# res <- 100
+# n <- 100
+# X  <- scale(as.matrix(seq(-30, 30, length.out = 10)))
+# X  <- scale(as.matrix(rnorm(n)))
+#
+# bt <- .3
+# th <- pi + atanlf(bt*X, 2) + rnorm(n, 0, .1)
+#
+# d <- data.frame(th=th, X=X)
+#
+#
+# b0cur <- 0
+# xl <- c(-3, 3)
+# cp1 <- ggplotCircular(th, plotMean=FALSE)
+# dp1  <- ggplot(aes(x=X, y=th), data=d) + geom_point() + myTheme() + ylab(expression(theta))
+# ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Constant prior")
+# ll2p1 <- plotbeta(normalPrior=TRUE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X, sd=.3) + myTheme() + labs(title="N(0, .3) prior")
+#
+# multiplot(cp1, dp1, ll1p1, ll2p1, cols=2)
+#
+# b0cur <- pi
+# xl <- c(-3, 3)
+#
+# cp1 <- ggplotCircular(th, plotMean=FALSE)
+# dp1  <- ggplot(aes(x=X, y=th), data=d) + geom_point() + myTheme() + ylab(expression(theta))
+# ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Constant prior")
+# ll2p1 <- plotbeta(normalPrior=TRUE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X, sd=.3) + myTheme() + labs(title="N(0, .3) prior")
+#
+# multiplot(cp1, dp1, ll1p1, ll2p1, cols=2)
 @
 
 The standard deviation of the normal prior
@@ -299,8 +300,7 @@ The standard deviation of the normal prior
 
 
 \begin{algorithm}[H]
-% \KwData{this text}
-% \KwResult{how to write algorithm with \LaTeX2e }
+
  For each $\beta_j$, select an appropriate bandwith $b_j.$
 
  Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.
@@ -308,8 +308,6 @@ The standard deviation of the normal prior
  $m = n + c.$
 
  \For{$i \leftarrow 2$ \KwTo $Q$}{
-
-%  \tcc{Sample $\beta_0$}
 
   $\psi_i = \theta_1 - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
 

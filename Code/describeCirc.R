@@ -50,10 +50,23 @@ meanDir <- function (th, na.rm=TRUE) {
 }
 
 
+biasCorrectionKappa <- function(kp_hat, n) {
+  if (kp_hat < 2) {
+    return(max(kp_hat - (2 / (n * kp_hat)), 0))
+  } else {
+    return(((n-1)^3 * kp_hat) / (n^3 + n))
+  }
+}
+#
+# kp_true <- .1
+# n <- 30
+invBiasCorrectionKappa  <- function(kp_true, n) {
+  uniroot(function (x) biasCorrectionKappa(x, n) - kp_true,
+        interval = c(0, 100))$root
+}
 
+# outer(c(.1, 4, 32), c(5, 30, 100), FUN = invBiasCorrectionKappa)
 
-
-# FUNCTION summaryCirc  ---------------------------------------------------
 # Calculates a large variety of parameter estimates from a sample of angles.
 #   th:       A numeric vector containing the angles in the sample.
 #             By default, this is calculated in radians.
