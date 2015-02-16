@@ -46,7 +46,8 @@ plotbeta <- function(th, X, normalPrior=FALSE, res = 100, xl = c(-10, 10),
     geom_line() +
     geom_vline(xintercept=d$sq[which.max(d$ysq)], linetype = "dashed") +
     theme_bw() +
-    ylab("Conditional Log-Likelihood of Beta") + xlab("Beta")
+    ylab(expression(paste("Conditional Log-Likelihood of ", beta))) +
+    xlab(expression(beta))
 
 }
 

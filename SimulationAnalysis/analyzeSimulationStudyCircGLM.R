@@ -15,10 +15,16 @@ load(paste0("Simulation/Results/[simStudCircGLM][nsim1000][Q1000][burnin100]",
             "[r2][bt_prior1][seed389238][n12,100][kp0.5,30]",
             "[btl=0.1,l=-1,lll=0.1,lll=-1,llllll=0.1,llllll=-1].rda"))
 simbothsmall <- simStudyResults
+load(paste0("Simulation/Results/[simStudCircGLM][nsim10000][Q10000][burnin100]",
+            "[r2][bt_prior1][seed389238][n12,100][kp0.5,30]",
+            "[btl=0.1,l=-1,lll=0.1,lll=-1,llllll=0.1,llllll=-1].rda"))
+simbothbig <- simStudyResults
 
-compr <- compareSimRes(simbigQ, simbignsim, simbothsmall, type = "sidebyside", digits=4)
+compr <- compareSimRes(simbothbig, simbigQ, simbignsim, simbothsmall, type = "sidebyside", digits=2)
 
-print(compr, selection = names(compr[[1]]))
+
+# The results are somewhat comparable
+compr
 # Main results
 simStudyResults
 

@@ -7,13 +7,14 @@ library(dplyr)
 
 
 # Method for printing simulation results.
-print.cGLMSim <- function(res,
+print.cGLMSim <- function(res, header=TRUE,
                           selection=list('n', 'kp',
                                       'b0_meandir', 'b0_in_CCI',
                                       'kp_mean', 'kp_mode', 'kp_in_HDI',
                                       'bt_1_mean', 'bt_1_in_CCI', 'crashed')) {
 
   resdes <- attr(res, 'args')
+  if (header) {
   cat("Simulation study results with number of simulations: ", resdes$nsim,
       ". Iterations per dataset Q: ", resdes$mcmcpar$Q, ".",
       "\nRange of the link function is r*pi, here r = ", resdes$mcmcpar$r,
@@ -22,6 +23,7 @@ print.cGLMSim <- function(res,
                                       resdes$betaDesigns[[1]]$bt_prior[2], ")"),
                          "constant"),
       " prior for Beta.\n", sep="")
+  }
 
   for (i in 1:length(res)) {
     cat("\n(", i, ") Betadesign: ", gsub('c\\(', "(", names(res)[i]), "\n", sep = "")

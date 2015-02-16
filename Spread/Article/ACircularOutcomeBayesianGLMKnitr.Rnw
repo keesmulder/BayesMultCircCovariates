@@ -33,56 +33,10 @@
 library(knitr)
 library(ggthemes)
 require(grid)
+require(gridExtra)
 
-opts_chunk$set(fig.path='figure/', fig.align='center', fig.show='hold', fig.height=6, fig.width=10, echo=FALSE, warning=FALSE, message=FALSE)
+opts_chunk$set(fig.path='figure/', fig.align='center', fig.show='hold', fig.height=4, fig.width=10, echo=FALSE, warning=FALSE, message=FALSE)
 opts_knit$set(root.dir = "C:/Dropbox/Research/BayesMultCircCovariates")
-
-# Multiple plot function
-#
-# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
-# - cols:   Number of columns in layout
-# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
-#
-# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
-# then plot 1 will go in the upper left, 2 will go in the upper right, and
-# 3 will go all the way across the bottom.
-#
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-
-  numPlots = length(plots)
-
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                    ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-
- if (numPlots==1) {
-    print(plots[[1]])
-
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
-
-# assign('multiplot', multiplot, envir = .GlobalEnv)
 
 @
 
@@ -122,10 +76,10 @@ The link function maps $\boldsymbol\beta^T \boldsymbol{x}_i \in \mathbb{R}$ to t
 A popular choice is
 \begin{equation}
 g(x) = 2 \tan^{-1}(x),
-\end{equation} because for this link function $g(0) = 0,$ and because its range is $\mathbb{S}^1$, which allows the predicted values across the entire circle. This link function is shown in figure \ref{linkfunc}. To ensure that the link function has the same form, all predictors must be standardized. % Mind you, it is probably better to add parameters to the model that account for mean and variance of the predictors. This might take into account the uncertainty about the mean and variance of the predictor?! Discuss.
+\end{equation} because for this link function $g(0) = 0,$ and because its range is $\mathbb{S}^1$, which allows the predicted values across the entire circle. This link function is shown in figure \ref{linkfunc}. To ensure that all , all predictors must be standardized. % Mind you, it is probably better to add parameters to the model that account for mean and variance of the predictors. This might take into account the uncertainty about the mean and variance of the predictor?! Discuss.
 
 \begin{figure}
-% {\centering \includegraphics[width=\linewidth]{figure/Link.pdf} }
+{\centering \includegraphics[width=\linewidth]{figure/Link.pdf} }
 \caption{Link function $g(x) = 2 \tan^{-1}(x).$}
 \label{linkfunc}
 \end{figure}
@@ -140,20 +94,6 @@ L(\beta_0, \boldsymbol{\beta}, \kappa \vert \boldsymbol{\theta}, \boldsymbol{X})
 
 %It can be shown (see Appendix A) that the conditional distribution of $\beta_0$ is proportional to $\mathcal{VM}(\beta_0 \vert \bar\psi, R_{\psi} \kappa).$ This makes it straightforward to sample from $\beta_0$ as in \citet{fisher1995statistical}. %Conditionals for $\kappa$ and $\boldsymbol\beta$ are not of known form and require special attention.
 
-\subsection{Prior}
-
-For $\beta_0$ and $\kappa$, a conjugate prior will be used. Setting $\psi_i = \theta_i - g(\boldsymbol\beta^T \boldsymbol{x}_i)$ leaves us with simply the regular von Mises likelihood $L_{\mathcal{VM}}(\beta_0, \kappa \vert \boldsymbol\psi)$, where $\beta_0$ is the mean direction. \citet{guttorp1988finding} present a conjugate prior for the von Mises distribution. Applied to this situation, it is given up to a constant of proportionality by
-\begin{equation}
-p(\mu_{\psi}, \kappa) \propto  I_0 (\kappa) ^{-c} \exp\{R_0 \kappa \cos (\mu_{\psi} - \mu_0)\},
-\end{equation}
-where $\mu_{\psi}$ represents the mean direction of the set of angles $\boldsymbol\psi$,  which represents $c$ observations of $\psi$ with prior mean direction $\mu_0$ and prior resultant length $R_0$. Note, however, that in this case this represents our prior information regarding the distribution of $\psi$ rather than $\theta$. Researchers may or may not be able to formulate prior expectations exist about $\mu_{\psi}$ and $\kappa$. Regardless, this method allows straightforward specification of a non-informative prior by setting $R_0 = 0$ and $c = 0$.
-
-For each $\beta$, a normal prior will be specified as
-\begin{equation}
-\beta \sim N(0, 10).
-\end{equation}
-
-This choice of prior will be examined in the following section.
 
 \subsection{Shape of the conditional likelihood of $\beta$}
 
@@ -163,61 +103,61 @@ source("Spread/Figures/plotBetaLL.R")
 require(ggplot2)
 @
 
-The conditional likelihood of $\boldsymbol{\beta}$ is independent of $\kappa$ and given by
-
+The conditional log-likelihood of $\boldsymbol{\beta}$ is independent of $\kappa$ and given by
 \begin{align}
-L(\boldsymbol{\beta} \vert \beta_0, \boldsymbol{\theta}, \boldsymbol{X}) &\propto
-\exp \left\lbrace \sum_{i=1}^{n} \cos \left[ \theta_i - \beta_0 - g(\boldsymbol\beta^T \boldsymbol{x}_i) \right]  \right\rbrace.
+%L(\boldsymbol{\beta} \vert \beta_0, \boldsymbol{\theta}, \boldsymbol{X}) &\propto
+%\exp \left\lbrace \sum_{i=1}^{n} \cos \left[ \theta_i - \beta_0 - g(\boldsymbol\beta^T \boldsymbol{x}_i) \right]  \right\rbrace. \\
+\ell (\boldsymbol{\beta} \vert \beta_0, \boldsymbol{\theta}, \boldsymbol{X}) &\propto
+\sum_{i=1}^{n} \cos \left[ \theta_i - \beta_0 - g(\boldsymbol\beta^T \boldsymbol{x}_i) \right]  .
 \end{align}
-For simplicity,
+For simplicity, we will consider the unidimensional case here.
 
-Due to the periodical nature of the outcome variable $\theta$, the conditional likelihood of some $\beta_j$ may have not be globally concave and may have more than one maximum. In this section, this issue will be explored.
+Due to the periodical nature of the outcome variable $\theta$, the conditional log-likelihood of some $\beta$ may have not be globally concave and may have more than one maximum. In this section, this issue will be explored. First, consider a simple dataset, with a single predictor $\boldsymbol{X} = \left\lbrace -3, -2, \dots, 2, 3 \right\rbrace $ that is standardized, and $\theta_i = \frac{\pi}{2} + 2 \tan^{-1} (x_i) + \varepsilon,$ for each $ i \in 1, 2, \dots, 7,$ so that true $\beta = 1$, where $\varepsilon \sim \mathcal{N}(0, .1)$. The true $\beta_0$ is $\pi$. The relationship between the predictor and circular outcome is shown in figure \ref{SimpleDataset}.
 
-First, consider a simple dataset, with a single predictor $\boldsymbol{X} = \left\lbrace -3, -2, \dots, 2, 3 \right\rbrace $ that was standardized, and $\theta_i = \frac{\pi}{2} + 2 \tan^{-1} (x_i) + \varepsilon,$ for each $ i \in 1, 2, \dots, 7,$ where $\varepsilon \sim \mathcal{N}(0, .1)$, so that true $\beta = 1$. The relationship between the predictor and circular outcome is shown in figure \ref{SimpleDataset}.
 
 \begin{figure}
 \label{SimpleDataset}
 <<SimpleDataset>>=
 source("Code/describeCirc.R")
 
-set.seed(212)
+myTheme <- theme_hc
 
-res <- 200
+set.seed(212)
 n <- 7
 X  <- scale(as.matrix(seq(-3, 3, length.out = n)))
-
 bt <- 1
 th <- pi + atanlf(bt*X, 2) + rnorm(n, 0, .1)
-
 d <- data.frame(th=th, X=X)
-
-ggplot(aes(x=X, y=th), data=d) + geom_point() + ylab(expression(theta))  + ylim(0, 2*pi)
+ggplot(aes(x=X, y=th), data=d) + geom_point() + ylab(expression(theta))  + ylim(0, 2*pi) + myTheme()
 @
 \caption{Relationship between the predictor $X$ and circular outcome $\theta$ in a simple case.}
+\label{SimpleDataset}
 \end{figure}
 
-The shape of the conditional likelihood is irregular, and depends the data and the current value for $\beta_0$. Figure \ref{SimpleDataBeta} shows three possible shapes for different $\beta_0$.
+Then, the shape of the log-likelihood can be displayed conditional on values for $\beta_0$. Figure \ref{SimpleDataBeta} shows three slices of the log-likelihood for different $\beta_0$. The shape of the conditional likelihood is irregular, and depends the data and the current value for $\beta_0$. Note that if the current $\beta_0$ is close to the true value, the maximum of the log-likelihood is close to the true value for $\beta$ as well. However, if $\beta_0$ is on the opposite end of the circle, the pattern reverses. In between, the likelihood may take many irregular forms.
 
 \begin{figure}
 \label{SimpleDataBeta}
 <<SimpleDataBeta>>=
-
-myTheme <- theme_hc
-
+res <- 200
 b0cur <- 0
 xl <- 10 * c(-1, 1)
-
-ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=0, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Beta_0 = 0")
-ll2p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi/2, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Beta_0 = pi/2")
-ll3p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Beta_0 = pi")
-
-multiplot(ll1p1, ll2p1, ll3p1, cols=3)
-
+ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=0,
+                  kp=1, r=2, th=th, X=X) +
+  myTheme() + labs(title=expression(paste(beta[0], " = 0")))
+ll2p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi/2,
+                  kp=1, r=2, th=th, X=X) +
+  myTheme() + labs(title=expression(paste(beta[0], " = ", pi / 2)))
+ll3p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi,
+                  kp=1, r=2, th=th, X=X) +
+  myTheme() + labs(title=expression(paste(beta[0], " = ", pi)))
+grid.arrange(ll3p1, ll2p1, ll1p1, ncol=3)
 @
-\caption{RHS of conditional likelihood.}
+\caption{Shape of the conditional likelihood for three different values for $\beta_0$.}
+\label{SimpleDataBeta}
 \end{figure}
 
-
+Another example dataset is given in Figure \ref{ZeroBData}. Here, true $\beta$ is zero, and the predictor $X$ consists of a sample with $n=30$ from the normal distribution that was standardized. Once again, true $\beta_0 = \pi$.
 
 
 
@@ -236,68 +176,65 @@ th <- pi + atanlf(bt*X, 2) + rnorm(n, 0, .8)
 
 d <- data.frame(th=th, X=X)
 
-ggplot(aes(x=X, y=th), data=d) + geom_point() + ylab(expression(theta)) + ylim(0, 2*pi)
-# @
-# \caption{Relationship between the predictor $X$ and circular outcome $\theta$ in a simple case.}
-# \end{figure}
-#
-# \begin{figure}
-# \label{ZeroBBeta}
-# <<ZeroBBeta>>=
-
-xl <- 10 * c(-1, 1)
-
-ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=0, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Beta_0 = 0")
-ll2p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi/2, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Beta_0 = pi/2")
-ll3p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Beta_0 = pi")
-multiplot(ll1p1, ll2p1, ll3p1, cols=3)
-multiplot(ll1p1, ll2p1, ll3p1, cols=1)
-
+ggplot(aes(x=X, y=th), data=d) + geom_point() + ylab(expression(theta)) + ylim(0, 2*pi) + myTheme()
 @
-\caption{RHS of conditional likelihood.}
+\caption{Relationship between the predictor $X$ and circular outcome $\theta$ in a simple case.}
+\label{ZeroBData}
 \end{figure}
 
 
 
+\begin{figure}
+\label{ZeroBBeta}
+<<ZeroBBeta>>=
 
-<<SimpleplotMatrix, include=FALSE, eval=FALSE>>=
-# res <- 100
-# n <- 100
-# X  <- scale(as.matrix(seq(-30, 30, length.out = 10)))
-# X  <- scale(as.matrix(rnorm(n)))
-#
-# bt <- .3
-# th <- pi + atanlf(bt*X, 2) + rnorm(n, 0, .1)
-#
-# d <- data.frame(th=th, X=X)
-#
-#
-# b0cur <- 0
-# xl <- c(-3, 3)
-# cp1 <- ggplotCircular(th, plotMean=FALSE)
-# dp1  <- ggplot(aes(x=X, y=th), data=d) + geom_point() + myTheme() + ylab(expression(theta))
-# ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Constant prior")
-# ll2p1 <- plotbeta(normalPrior=TRUE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X, sd=.3) + myTheme() + labs(title="N(0, .3) prior")
-#
-# multiplot(cp1, dp1, ll1p1, ll2p1, cols=2)
-#
-# b0cur <- pi
-# xl <- c(-3, 3)
-#
-# cp1 <- ggplotCircular(th, plotMean=FALSE)
-# dp1  <- ggplot(aes(x=X, y=th), data=d) + geom_point() + myTheme() + ylab(expression(theta))
-# ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X) + myTheme() + labs(title="Constant prior")
-# ll2p1 <- plotbeta(normalPrior=TRUE, res=res, xl=xl, b0=b0cur, kp=1, r=2, th=th, X=X, sd=.3) + myTheme() + labs(title="N(0, .3) prior")
-#
-# multiplot(cp1, dp1, ll1p1, ll2p1, cols=2)
+xl <- 10 * c(-1, 1)
+
+myTheme <- theme_hc
+b0cur <- 0
+xl <- 10 * c(-1, 1)
+
+ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=0,
+                  kp=1, r=2, th=th, X=X) +
+  myTheme() + labs(title=expression(paste(beta[0], " = 0")))
+ll2p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi/2,
+                  kp=1, r=2, th=th, X=X) +
+  myTheme() + labs(title=expression(paste(beta[0], " = ", pi / 2)))
+ll3p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi,
+                  kp=1, r=2, th=th, X=X) +
+  myTheme() + labs(title=expression(paste(beta[0], " = ", pi)))
+
+grid.arrange(ll1p1, ll2p1, ll3p1, ncol=3)
+
 @
+\caption{RHS of conditional likelihood.}
+\label{ZeroBBeta}
+\end{figure}
 
 The standard deviation of the normal prior
+
+\subsection{Prior}
+
+For $\beta_0$ and $\kappa$, a conjugate prior will be used. Setting $\psi_i = \theta_i - g(\boldsymbol\beta^T \boldsymbol{x}_i)$ leaves us with simply the regular von Mises likelihood $L_{\mathcal{VM}}(\beta_0, \kappa \vert \boldsymbol\psi)$, where $\beta_0$ is the mean direction. \citet{guttorp1988finding} present a conjugate prior for the von Mises distribution. Applied to this situation, it is given up to a constant of proportionality by
+\begin{equation}
+p(\mu_{\psi}, \kappa) \propto  I_0 (\kappa) ^{-c} \exp\{R_0 \kappa \cos (\mu_{\psi} - \mu_0)\},
+\end{equation}
+where $\mu_{\psi}$ represents the mean direction of the set of angles $\boldsymbol\psi$,  which represents $c$ observations of $\psi$ with prior mean direction $\mu_0$ and prior resultant length $R_0$. Note, however, that in this case this represents our prior information regarding the distribution of $\psi$ rather than $\theta$. Researchers may or may not be able to formulate prior expectations exist about $\mu_{\psi}$ and $\kappa$. Regardless, this method allows straightforward specification of a non-informative prior by setting $R_0 = 0$ and $c = 0$.
+
+For each $\beta$, a normal prior will be specified as
+\begin{equation}
+\beta \sim N(0, 10).
+\end{equation}
+
+This choice of prior will be examined in the following section.
+
 
 
 \section{MCMC Sampling}
 
+This section will provide some details as to the proposed MCMC-algorithm, given in Algorithm \ref{basealg}. The algorithm separates the sampling of $(\beta_0, \kappa)$ and $\boldsymbol\beta$ by calculating $\boldsymbol\psi$ and using $\boldsymbol\psi$ in obtaining $(\beta_0, \kappa)$. Sampling of $\kappa$ employs an algorithm discussed by \citet{forbes2014fast} and will not be repeated here.
 
+A random walk mechanism is employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside ofthis algorithm.
 
 \begin{algorithm}[H]
 
@@ -315,10 +252,9 @@ The standard deviation of the normal prior
 
   Draw $\beta_0^{(i)} \sim \mathcal{VM}(\bar\psi, R_{\psi} \kappa).$
 
-
   $\eta = - R_\psi * \cos\left(\beta_0 - \bar{\psi}\right).$
 
-  $\kappa^{(i)} = \texttt{sampleKappa}(\eta, m).$
+  Sample $\kappa$ as in \citet{forbes2014fast}, using $(\eta, m).$
 
   \For{$j \leftarrow 1$ \KwTo $K$}{
 
@@ -344,31 +280,32 @@ The standard deviation of the normal prior
 
   }
  \caption{An algorithm for the given GLM approach}
+ \label{basealg}
 \end{algorithm}
 
 
 
-
-\section{The model}
-
-\begin{itemize}
-\item Multivariate von Mises distribution
-\item Other multivariate circular distributions?
-\item Notation
-\item Link function
-\item Likelihood
-\item Prior
-\item Posterior
-\end{itemize}
-
-\section{Computational issues}
-
-\begin{itemize}
-\item Shape of the marginal likelihood for some common cases
-\item Selection of starting values
-\item Non-interpretability of beta's
-\item Solutions
-\end{itemize}
+%
+% \section{The model}
+%
+% \begin{itemize}
+% \item Multivariate von Mises distribution
+% \item Other multivariate circular distributions?
+% \item Notation
+% \item Link function
+% \item Likelihood
+% \item Prior
+% \item Posterior
+% \end{itemize}
+%
+% \section{Computational issues}
+%
+% \begin{itemize}
+% \item Shape of the marginal likelihood for some common cases
+% \item Selection of starting values
+% \item Non-interpretability of beta's
+% \item Solutions
+% \end{itemize}
 
 \section{Simulation study}
 

@@ -1,3 +1,21 @@
+source('Simulation/simulationStudyCircGLM.R')
+
+print.comparecGLMSim <- function (obj) {
+  cat("Comparison of ",
+      paste(attr(obj, 'objnames'), collapse=", "), ".\n", sep = "")
+
+  cat("Simulation studies have number of simulations: ",
+      paste0("(", paste0(attr(obj, 'nsims'), collapse="|"), ")"),
+      ".\nIterations per dataset Q: ",
+      paste0("(", paste0(attr(obj, 'Qs'), collapse="|"), ")"), ".",
+      "\nRange of the link function is r*pi, here r = ",
+      paste0("(", paste0(attr(obj, 'rs'), collapse="|"), ")"),
+      ".\nUsing a ",
+      paste0("(", paste0(attr(obj, 'priors'), collapse="|"), ")"),
+      " prior for Beta.\n", sep="")
+  print.cGLMSim(obj, header=FALSE)
+}
+
 compareSimRes <- function(..., type = "meansd", digits = 2) {
   # Compare two simulation study files in various ways.
 
@@ -18,6 +36,8 @@ compareSimRes <- function(..., type = "meansd", digits = 2) {
 
   # Number of beta designs.
   nbts <- length(attr(out, "args")$betaDesigns)
+
+
 
   for(i in 1:nbts) {
 
@@ -51,5 +71,15 @@ compareSimRes <- function(..., type = "meansd", digits = 2) {
       }
     }
   }
+  class(out) <- c("comparecGLMSim", class(out))
+  cl <- match.call()
+  attr(out, "objnames")  <- as.character(cl[-c(1, length(cl)-c(1, 0))])
+  attr(out, 'nsims')   <- sapply(rs, function(r) attr(r, 'args')$nsim)
+  attr(out, "Qs")     <- sapply(rs, function(r) attr(r, 'args')$mcmcpar$Q)
+  attr(out, "rs")     <- sapply(rs, function(r) attr(r, 'args')$mcmcpar$r)
+  attr(out, "priors") <- sapply(rs, function(r) ifelse(attr(r, 'args')$mcmcpar$bt_prior_type,
+                                                       paste0("N(", attr(r, 'args')$betaDesigns[[1]]$bt_prior[1], ", ",
+                                                              attr(r, 'args')$betaDesigns[[1]]$bt_prior[2], ")"),
+                                                       "constant"))
   out
 }
