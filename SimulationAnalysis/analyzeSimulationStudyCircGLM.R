@@ -40,7 +40,8 @@ plot(simStudyResults, btDesNumber=2, n=12, kp=0.5, stat="bt_1_mean", breaks=100)
 
 # Serious problems start with (4).
 # 100, 0.5, bt_1_mean is way off regardless of large sample size.
-plot(simStudyResults, btDesNumber=4, n=100, kp=0.5, stat="bt_1_mean", breaks=100)
+plot(simStudyResults, btDesNumber=4, n=100, kp=0.5, stat="bt_2_mean", breaks=100)
+mean(slice.cGLMSim(simStudyResults, btDesNumber=4, n=100, kp=0.5, stat="bt_1_mean"))
 # There does not even seem to be a peak at -1.
 
 # 100, 30, shows the first b0 inversion.
@@ -51,6 +52,7 @@ abline(v=pi/2, col="green")
 # beta_0.
 
 plot(simStudyResults, btDesNumber=4, n=100, kp=30, stat="bt_1_mean", breaks=100)
+plot(simStudyResults, btDesNumber=4, n=100, kp=30, stat="bt_2_mean", breaks=100)
 # Here it is clear that there is an inverted group and that there is a
 # non-inverted group.
 
@@ -72,6 +74,7 @@ plot(simStudyResults, btDesNumber=5, n=12, kp=0.5, stat="kp_mode", breaks=100)
 
 # With n=100 the inversions happen more than half of the time.
 plot(simStudyResults, btDesNumber=5, n=100, kp=0.5, stat="b0_meandir", breaks=100)
+plot(simStudyResults, btDesNumber=5, n=100, kp=0.5, stat="bt_1_mean", breaks=100)
 
 # Only a few errors with kp=30.
 plot(simStudyResults, btDesNumber=5, n=12, kp=30, stat="b0_meandir", breaks=100)
@@ -85,6 +88,7 @@ plot(simStudyResults, btDesNumber=5, n=12, kp=30, stat="kp_mode", breaks=100)
 # n=100 solves this.
 plot(simStudyResults, btDesNumber=5, n=100, kp=30, stat="kp_mode", breaks=100)
 
+linkfun <- function(x) 2 * atan(x)
 generateBetaShapePlot(b0_cur = pi/2, true_b0 = pi/2, true_bt = -1, Xsd = 1, n = 100)
 
 slice.cGLMSim(simStudyResults, btDesNumber=3, n=12, kp=0.5, stat="kp_mode")
@@ -95,6 +99,10 @@ plot(simStudyResults, btDesNumber=3, n=100, kp=30, stat="kp_mode", breaks=100)
 plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="b0_meandir", breaks=100)
 plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="kp_mode", breaks=100)
 plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="bt_1_mean", breaks=100)
+plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="bt_2_mean", breaks=100)
+plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="bt_3_mean", breaks=100)
+plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="bt_4_mean", breaks=100)
+plot(simStudyResults, btDesNumber=6, n=100, kp=30, stat="bt_5_mean", breaks=100)
 
 simStudyResults
 

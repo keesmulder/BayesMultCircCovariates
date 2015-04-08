@@ -85,7 +85,7 @@
 
 Circular data is data that is measured in angles or directions. They are frequently encountered in scientific fields as diverse as Molecular Biology, Cognitive Psychology, Political Science \citep{gill2010} and Earth Sciences. Circular data differ from linear data in the sense that circular data are measured in a periodical sample space. For example, an angle of $1^{\circ}$ is quite close to an angle $359^{\circ},$ although linear intuition would suggest otherwise.
 
-Because of this, linear models may not fully describe the process that has generated the circular data of interest. Circular data analysis has been developed to deal with this, but the attention to this type of data has been limited. Only slightly more than a handful of in-depth books on circular data analysis have been published \citep{fisher1995statistical,mardia1999directional,pewsey2013circular}, and statistical methods are generally fairly limited. The Bayesian paradigm, in particular MCMC methods, may provide a flexible new approach to analyzing circular data.
+Because of this, linear models may not fully describe the process that has generated the circular data of interest. Circular data analysis has been developed to deal with this, but the attention to this type of data has been limited. Only slightly more than a handful of in-depth books on circular data analysis have been published \citep{fisher1995statistical,mardia1999directional,pewsey2013circular}, and statistical methods are generally fairly limited. The Bayesian paradigm, in particular MCMC methods, may provide a flexible approach to analyzing circular data.
 
 The circular analogue to the normal distribution is the von Mises distribution \citep{von1918ganzzahligkeit}. This symmetric unimodal distribution is given by
 \begin{equation}
@@ -98,9 +98,7 @@ A Bayesian circular data regression analysis is performed and applied by \citet{
 
 Recent work has provided a multivariate extension of the von Mises distribution \citep{mardia2008multivariate,mardia2014some}. \citet{lagona2014regression} extends this to the General Linear Model (GLM) setting, applying MCMC likelihood approximation as in \citet{geyer1992constrained} to obtain Maximum Likelihood Estimates (MLEs). This approach is not fully Bayesian, but it is a promising approach because of its flexibility, allowing both the mean and concentration to be dependent on an arbitrary set of covariates, as well as allowing observations to be dependent.
 
-In this paper, a novel fully Bayesian method for the analysis of circular data will be developed. It's application will be made accessible, and potential issues will be studied. Finally, simulations into its performance will be discussed.
-
-The GLM approach to analysis of circular data is not free from the lack of concavity as described in \citet{gill2010}, although this has not been investigated in literature. In this paper, the GLM approach will applied in a fully Bayesian setting. Furthermore, the lack of concavity in the likelihoods will be examined, and suggestions will be formulated on how to deal with this issue.
+In this paper, a novel fully Bayesian method for the analysis of circular data will be developed. Its application will be made accessible, and potential issues will be studied. The GLM approach to analysis of circular data is not free from the lack of concavity as described in \citet{gill2010}, although this has not been investigated in literature. In this paper, the GLM approach will be applied in a fully Bayesian setting. Furthermore, the lack of concavity in the likelihoods will be examined, and suggestions will be formulated on how to deal with this issue. Finally, simulations into its performance will be discussed.
 
 \section{The Model}
 
@@ -117,10 +115,19 @@ The link function maps $\boldsymbol\beta^T \boldsymbol{x}_i \in \mathbb{R}$ to t
 A popular choice is
 \begin{equation}
 g(x) = 2 \tan^{-1}(x),
-\end{equation} because for this link function $g(0) = 0,$ and because its range is $\mathbb{S}^1$, which allows the predicted values across the entire circle. This link function is shown in figure \ref{linkfunc}. To ensure that all , all predictors must be standardized. % Mind you, it is probably better to add parameters to the model that account for mean and variance of the predictors. This might take into account the uncertainty about the mean and variance of the predictor?! Discuss.
+\end{equation} because for this link function $g(0) = 0,$ and because its range is $\mathbb{S}^1$, which allows the predicted values across the entire circle. This link function is shown in figure \ref{linkfunc}. To ensure that all , all predictors must be standardized. 
 
 \begin{figure}
-{\centering \includegraphics[width=\linewidth]{figure/Link.pdf} }
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+
+{\centering \includegraphics[width=\linewidth]{figure/Link-1} 
+
+}
+
+
+
+\end{knitrout}
 \caption{Link function $g(x) = 2 \tan^{-1}(x).$}
 \label{linkfunc}
 \end{figure}
@@ -133,7 +140,7 @@ L(\beta_0, \boldsymbol{\beta}, \kappa \vert \boldsymbol{\theta}, \boldsymbol{X})
 &=  \left\lbrace 2 \pi I_0(\kappa) \right\rbrace^{-n} \exp \left\lbrace \kappa \sum_{i=1}^{n} \cos \left[ \theta_i - \beta_0 - g(\boldsymbol\beta^T \boldsymbol{x}_i) \right]  \right\rbrace.
 \end{align}
 
-%It can be shown (see Appendix A) that the conditional distribution of $\beta_0$ is proportional to $\mathcal{VM}(\beta_0 \vert \bar\psi, R_{\psi} \kappa).$ This makes it straightforward to sample from $\beta_0$ as in \citet{fisher1995statistical}. %Conditionals for $\kappa$ and $\boldsymbol\beta$ are not of known form and require special attention.
+It can be shown (see Appendix A) that the conditional distribution of $\beta_0$ is proportional to $\mathcal{VM}(\beta_0 \vert \bar\psi, R_{\psi} \kappa).$ This makes it straightforward to sample from $\beta_0$ as in \citet{fisher1995statistical}. Conditionals for $\kappa$ and $\boldsymbol\beta$ are not of simple form and require special attention.
 
 
 \subsection{Shape of the conditional likelihood of $\beta$}
@@ -149,9 +156,7 @@ The conditional log-likelihood of $\boldsymbol{\beta}$ is independent of $\kappa
 \end{align}
 For simplicity, we will consider the unidimensional case here.
 
-Due to the periodical nature of the outcome variable $\theta$, the conditional log-likelihood of some $\beta$ may have not be globally concave and may have more than one maximum. In this section, this issue will be explored.
-
-First, consider a simple dataset, with a single predictor $\boldsymbol{X} = \left\lbrace -3, -2, \dots, 2, 3 \right\rbrace $ that is standardized, and $\theta_i = \frac{\pi}{2} + 2 \tan^{-1} (x_i) + \varepsilon,$ for each $ i \in 1, 2, \dots, 7,$ so that true $\beta = 1$, where $\varepsilon \sim \mathcal{N}(0, .1)$. The true $\beta_0$ is $\pi$. The relationship between the predictor and circular outcome is shown in figure \ref{SimpleDataset}.
+Due to the periodical nature of the outcome variable $\theta$, the conditional log-likelihood of some $\beta$ may have not be globally concave and may have more than one maximum. In this section, this issue will be explored. First, consider a simple dataset, with a single predictor $\boldsymbol{X} = \left\lbrace -3, -2, \dots, 2, 3 \right\rbrace $ that is standardized, and $\theta_i = \frac{\pi}{2} + 2 \tan^{-1} (x_i) + \varepsilon,$ for each $ i \in 1, 2, \dots, 7,$ so that true $\beta = 1$, where $\varepsilon \sim \mathcal{N}(0, .1)$. The true $\beta_0$ is $\pi$. The relationship between the predictor and circular outcome is shown in figure \ref{SimpleDataset}.
 
 
 \begin{figure}
@@ -167,9 +172,10 @@ First, consider a simple dataset, with a single predictor $\boldsymbol{X} = \lef
 
 \end{knitrout}
 \caption{Relationship between the predictor $X$ and circular outcome $\theta$ in a simple case.}
+\label{SimpleDataset}
 \end{figure}
 
-Then, the shape of the log-likelihood can be displayed conditional on values for $\beta_0$. Figure \ref{SimpleDataBeta} shows three slices of the log-likelihood for different $\beta_0$. The shape of the conditional likelihood is irregular, and depends the data and the current value for $\beta_0$. Note that as the
+Then, the shape of the log-likelihood can be displayed conditional on values for $\beta_0$. Figure \ref{SimpleDataBeta} shows three slices of the log-likelihood for different $\beta_0$. The shape of the conditional likelihood is irregular, and depends the data and the current value for $\beta_0$. Note that if the current $\beta_0$ is close to the true value, the maximum of the log-likelihood is close to the true value for $\beta$ as well. However, if $\beta_0$ is on the opposite end of the circle, the pattern reverses. In between, the likelihood may take many irregular forms.
 
 \begin{figure}
 \label{SimpleDataBeta}
@@ -184,11 +190,10 @@ Then, the shape of the log-likelihood can be displayed conditional on values for
 
 \end{knitrout}
 \caption{Shape of the conditional likelihood for three different values for $\beta_0$.}
+\label{SimpleDataBeta}
 \end{figure}
 
-
-
-
+Another example dataset is given in Figure \ref{ZeroBData}. Here, true $\beta$ is zero, and the predictor $X$ consists of a sample with $n=30$ from the normal distribution that was standardized. Once again, true $\beta_0 = \pi$. The main message is that there are many different and unpredictable forms that $\beta$ can take, and it is not straightforward to sample from its conditionals.
 
 \begin{figure}
 \label{ZeroBData}
@@ -203,6 +208,7 @@ Then, the shape of the log-likelihood can be displayed conditional on values for
 
 \end{knitrout}
 \caption{Relationship between the predictor $X$ and circular outcome $\theta$ in a simple case.}
+\label{ZeroBData}
 \end{figure}
 
 
@@ -219,7 +225,8 @@ Then, the shape of the log-likelihood can be displayed conditional on values for
 
 
 \end{knitrout}
-\caption{RHS of conditional likelihood.}
+\caption{Shape of the conditional likelihood for three different values for $\beta_0$.}
+\label{ZeroBBeta}
 \end{figure}
 
 The standard deviation of the normal prior
@@ -237,21 +244,17 @@ For each $\beta$, a normal prior will be specified as
 \beta \sim N(0, 10).
 \end{equation}
 
-This choice of prior will be examined in the following section.
-
-
-
 \section{MCMC Sampling}
 
 This section will provide some details as to the proposed MCMC-algorithm, given in Algorithm \ref{basealg}. The algorithm separates the sampling of $(\beta_0, \kappa)$ and $\boldsymbol\beta$ by calculating $\boldsymbol\psi$ and using $\boldsymbol\psi$ in obtaining $(\beta_0, \kappa)$. Sampling of $\kappa$ employs an algorithm discussed by \citet{forbes2014fast} and will not be repeated here.
 
-A random walk mechanism is employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside ofthis algorithm.
+A random walk mechanism is employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside of this algorithm.
 
 \begin{algorithm}[H]
 
- For each $\beta_j$, select an appropriate bandwith $b_j.$
+\texttt{For each $\beta_j$, select an appropriate bandwith $b_j.$}
 
- Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.
+\texttt{Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.}
 
  $m = n + c.$
 
@@ -348,9 +351,9 @@ A random walk mechanism is employed for $\boldsymbol\beta$. This requires settin
 
 
 
+\appendix
 
-
-\section*{Appendix A: Conditional distribution of $\beta_0$} \label{beta0}
+\section{Conditional distribution of $\beta_0$} \label{beta0}
 
 Here, I will show that the conditional distribution for $\beta_0$,
 $$ L(\beta_0 \vert \boldsymbol\beta, \kappa, \theta, \boldsymbol{X}) \propto \exp \left\lbrace \kappa \sum_{i=1}^n \cos \left[ \theta_i - (\beta_0 + g(\boldsymbol\beta^T \boldsymbol{x}_i)) \right]  \right\rbrace \propto \mathcal{VM}(\beta_0 \vert \bar\psi, R_{\psi}\kappa). $$

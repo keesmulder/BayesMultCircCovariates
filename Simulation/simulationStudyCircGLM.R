@@ -1,4 +1,4 @@
-source("Data/generateCircularGLMData.R")
+  source("Data/generateCircularGLMData.R")
 source("DataAnalysis/circGLM.R")
 
 library(circular)
@@ -26,7 +26,8 @@ print.cGLMSim <- function(res, header=TRUE,
   }
 
   for (i in 1:length(res)) {
-    cat("\n(", i, ") Betadesign: ", gsub('c\\(', "(", names(res)[i]), "\n", sep = "")
+    cat("\n(", i, ") Betadesign: ",
+        gsub('c\\(', "(", names(res)[i]), "\n", sep = "")
     print(do.call(select_, c(list(res[[i]]), .dots = list(selection))))
   }
 }

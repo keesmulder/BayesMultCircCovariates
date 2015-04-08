@@ -1,0 +1,197 @@
+\documentclass[12pt,a4paper]{article}\usepackage[]{graphicx}\usepackage[]{color}
+%% maxwidth is the original width if it is less than linewidth
+%% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+
+\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.686,0.059,0.569}{#1}}%
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.192,0.494,0.8}{#1}}%
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.678,0.584,0.686}{\textit{#1}}}%
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0.345,0.345,0.345}{#1}}%
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.333,0.667,0.333}{#1}}%
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.737,0.353,0.396}{\textbf{#1}}}%
+
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
+
+\usepackage{alltt}
+\usepackage[utf8]{inputenc}
+
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+
+\usepackage{graphicx}
+\usepackage{subcaption}
+%\usepackage{fullpage}
+
+\usepackage[]{algorithm2e}
+
+\usepackage{apacite}
+\usepackage{natbib}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\author{Kees Mulder}
+\title{Preventing inversions in circular GLM estimation}
+
+\setlength{\jot}{14pt}
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\begin{document}
+
+\maketitle
+
+% R setup.
+
+
+
+\section{Problem description}
+
+The circular regression model currently under investigation assumes
+$$ f(\theta \vert \beta_0, \boldsymbol\beta, \boldsymbol{X}, \kappa) \propto  \exp \left\lbrace \kappa \cos \left[ \theta - \left( \beta_0 + g ( \boldsymbol\beta^T \boldsymbol{X})  \right)  \right] \right\rbrace, $$
+where $\beta_0$ is an offset parameter, $\boldsymbol{X}$ is a vector of regression coefficients, $\boldsymbol\beta$ is a vector of regression coefficients, and $\kappa$ is the concentration parameter.
+
+In this circular regression problem, a set of data and its predictions may be depicted as follows:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+
+{\centering \includegraphics[width=\maxwidth]{figure/GoodEx-1} 
+
+}
+
+
+
+\end{knitrout}
+
+The dots represent the data. The green line is a regression line containing the predicted angles $\bar\theta$, with $\beta_1 = 1,$ which was used when generating this dataset. The blue lines simply represent $\pi/2$ and $3\pi/2$. This form is simple to understand, and generally not problematic.
+
+A more problematic form occurs when $\beta_1=10$:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+
+{\centering \includegraphics[width=\maxwidth]{figure/BadEx-1} 
+
+}
+
+
+
+\end{knitrout}
+
+Here, most of the probability mass lies outside on the side opposite to the correct $\beta_0$, which is $\pi$. Therefore, when estimating $\beta_0$ and $\beta_1$, the estimation procedure (ie. IRLS, MCMC) often ends up with $\hat{\beta_0} = \beta_0^{true} + \pi$ and a $\hat{\beta}$ that is far off from the true value. An example here is  $\beta_0=0, \beta_1=-0.1,$ and is given by the red line. I will call this an \textit{inversion}. In the univariate case, the values for $\beta$ that cause inversions are unreasonable and unlikely to occur in practice. In the multivariate case, it is uncertain when inversions will occur.
+
+The goal here is to determine some upper bound for $\beta$ below which it may be unlikely for inversions to occur. Inversions occur when the proportion of the probability mass of the angles that occurs on the semicircle around the intercept $\beta_0$ is too low. This is the probability mass within the two blue bounds in the previous figures. We will call this proportion $u$.  Formally, we will write
+$$ u = P(\beta_0 - \pi / 2 \prec \theta \prec \beta_0 + \pi / 2) = \int_{\beta_0 - \pi / 2}^{\beta_0 + \pi / 2} f(\theta) d \theta.$$
+
+\section{Bounds}
+
+It is not straightforward to evaluate the integral with an arbitrary $\kappa$, as we are dealing with a joint distribution which itself contains a random variable. However, we can identify two bounds for limiting cases of $\kappa$.
+
+\subsection{$\kappa \to 0$}
+
+In the GLM, each observed value is von Mises distributed as $ \mathcal{VM} (\beta_0 + g ( \boldsymbol\beta^T \boldsymbol{x}), \kappa).$ We know that with $ \kappa \to 0,$ the von Mises distribution tends to the circular uniform distribution. Then,
+\begin{align}
+\lim_{\kappa\to 0} u &= \int_{\beta_0 - \pi / 2}^{\beta_0 + \pi / 2} f(\theta) d \theta \\
+&= \int_{\beta_0 - \pi / 2}^{\beta_0 + \pi / 2} \frac{1}{2 \pi} d \theta \\
+&= \frac{(\beta_0 + \pi / 2) - (\beta_0 - \pi / 2)}{2 \pi} = \frac{\pi}{2\pi} = 0.5.
+\end{align}
+
+\subsection{$\kappa \to \infty$}
+
+As $\kappa \to \infty$, the von Mises distribution tends to a point (degenerate) function around the mean direction. In this model, the mean direction is $\beta_0 + g ( \boldsymbol\beta^T \boldsymbol{x} )$, which is not equal for all observations as it depends on the predictors $\boldsymbol{X}$. Thus, with $\kappa \to \infty,$ we can set $\theta = \beta_0 + g ( \boldsymbol\beta^T \boldsymbol{X}),$ so that the distribution of $\theta$ solely depends on the distribution of $\boldsymbol\beta^T \boldsymbol{X}$ ($\beta_0$ is constant over observations, $g( \cdot )$ is chosen).
+
+Consider the distribution of the random variable $Z = \boldsymbol\beta^T \boldsymbol{X} = \sum_{j=1}^{K} \beta_j X_j,$ that is, the sum of all predictors by their associated $\beta$. $Z$ can be seen as a sort of predicted value on the real line before it is placed on the circle through a link function. Here, $X \sim N(0, 1),$ because the predictors are standardized, and as such $\beta X \sim N(0, \vert \beta \vert)$. Then, because the variance of a sum of normally distributed variables is the sum of the respective variances, $Z \sim N(0, \sigma^2_Z),$ where $\sigma^2_Z = \sum_{j=1}^{K} \vert \beta_j \vert.$ This is an important step, because for our current purposes, $\sigma^2_Z$ is essentially a sufficient statistic for $\boldsymbol\beta.$ This allows discussion of the set of predictors as a scalar without considering the multivariate nature of $\boldsymbol\beta$, so we will use $Z$ in the sequel.
+
+Going back to $u$, the fraction of data that is on the same semicircle as $\beta_0$, a simpler form for it may now be found. Knowing that $\theta = \beta_0 + g (z), z = g^{-1}(\theta - \beta_0),$ and $Z \sim N \left(0, \sigma^2_Z \right),$ we find
+\begin{align}
+\lim_{\kappa\to\infty} u & = \int_{\theta = \beta_0 + \pi / 2}^{\theta = \beta_0 - \pi / 2} f(\theta) d \theta \\
+& = \int_{\beta_0 + g (z) = \beta_0 + \pi / 2}^{\beta_0 + g (z) = \beta_0 - \pi / 2} f(\beta_0 + g (z)) d (\beta_0 + g (z)) \\
+& =  \int_{z = g^{-1} ( - \pi / 2 )}^{z = g^{-1} (\pi / 2) } N \left( z \middle\vert 0, \sigma^2_Z \right) dz \\
+& = \phi \left( \frac{g^{-1} (\pi / 2)}{\sigma^2_Z} \right) - \phi \left( \frac{g^{-1} (- \pi / 2)}{\sigma^2_Z} \right),
+\end{align}
+where $\phi( \cdot )$ is the standard normal cumulative distribution function.
+
+For the common link function $g(y) = 2  \tan^{-1} (y)$, we have $g^{-1}(\pi/2) = 1$ and $g^{-1}(-\pi/2) = -1$, so we obtain
+\begin{equation}
+\lim_{\kappa\to\infty} u  =  \phi \left( \frac{1}{\sigma^2_Z} \right) - \phi \left( \frac{-1}{\sigma^2_Z} \right) = h\left(\sigma^2_Z \right).
+\end{equation}
+
+This second bound has support $[0, 1],$ so it can be both above and below the other bound, 0.5.
+
+\subsection{Application of bounds}
+
+We will now write $u$ as a function of the parameters in our model as
+$$ u(\kappa, \sigma^2_Z) = \int_{\beta_0 - \pi / 2}^{\beta_0 + \pi / 2} f(\theta \vert \kappa, \sigma^2_Z) d \theta.$$
+In this notation, we can see our bounds as $u(0, \sigma^2_Z) = 0.5,$ and $u(\infty, \sigma^2_Z) = h\left(\sigma^2_Z \right).$ These bounds denote the values that $u$ may take at limiting values for $\kappa$, which for the second bound depends on $\sigma^2_Z$.
+
+This suggest that either $0.5 \geq u \geq h\left(\sigma^2_Z \right)$ or $ h\left(\sigma^2_Z \right) \geq u \geq 0.5$. However, we can not guarantee that $u$ is in between $0.5$ and $h\left(\sigma^2_Z \right)$, because the function $u(\kappa \vert \sigma^2_Z)$ is not necessarily monotonic.
+
+A small simulation shows that the function is indeed not monotonic. The situation $h\left(\sigma^2_Z \right) = 0.5$ is discussed here, because if $u$ is always between the two bounds, this value should have $u = 0.5$ everywhere. Through numerical root-finding we find that with $h\left(\sigma^2_Z \right) = 0.5,$ then $\sigma^2_Z = h^{-1}(0.5) = 1.483$. So, a large dataset $(n = 100 000)$ was generated from the assumed model with $\sigma^2_Z = 1.483$, for a range of values of $\kappa$, each time counting the proportion of values in the semicircle around $\beta_0$, to obtain an estimate of $u$. The results are plotted here:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+
+{\centering \includegraphics[width=\maxwidth]{figure/FunctionU-1} 
+
+}
+
+
+
+\end{knitrout}
+%
+Here we see that the plot indeed starts at $u=0.5$, and tends to $u=0.5$ again as $\kappa \to \infty$, but in between, rises above $0.5$. Although it would be difficult to prove, we can conjecture that $u > 0.5$ as long as $h\left(\sigma^2_Z \right) > 0.5$, which occurs when $\sigma^2_Z = \sum_{j=1}^{K} \vert \beta_j \vert < 1.483.$
+
+This leads to the final result. For some application with unknown $\kappa$, we can determine, if we assume the conjecture, that
+\begin{equation}
+u(\kappa, \sigma^2_Z) > \min \left[ 0.5, h\left(\sigma^2_Z\right) \right].
+\end{equation}
+
+\section{Conclusion}
+
+The final result here is quite limited in its applicability, as there is only a lower limit that can be given, and even it depends on assuming a result based on a simulation.
+
+In order to choose a set of values for a simulation, we may also simply simulate data under the model given a set of parameters $(\sigma^2_Z, \kappa)$, and then count the proportion of the data that falls within the desired region, estimating $u$ and thus get a sense of the likelihood of an inversion. In reality, of course, we do not know the true values of the parameters $(\sigma^2_Z, \kappa)$, so this does not help us identify the truth in a real dataset.
+
+\bibliographystyle{apacite}
+\bibliography{C:/Dropbox/LiteratureCircular/CircularData}
+
+\end{document}
