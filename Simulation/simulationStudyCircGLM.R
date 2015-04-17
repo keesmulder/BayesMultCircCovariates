@@ -1,4 +1,4 @@
-  source("Data/generateCircularGLMData.R")
+source("Data/generateCircularGLMData.R")
 source("DataAnalysis/circGLM.R")
 
 library(circular)

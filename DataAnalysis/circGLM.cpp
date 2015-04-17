@@ -38,10 +38,28 @@ using namespace arma;
 // Check if quantiles are obtained properly.
 
 // [[Rcpp::export]]
-vec atanlf(vec x, double r) {
+vec atanLF(vec x, double r) {
   // arctangent-family link function, spreading range range, where c=1
   // corresponds to the semicircle, and c=2 is most common.
   return r * atan(x);
+}
+// [[Rcpp::export]]
+double atanLFdouble(double x, double r) {
+  // arctangent-family link function, spreading range range, where c=1
+  // corresponds to the semicircle, and c=2 is most common.
+  return r * atan(x);
+}
+
+// [[Rcpp::export]]
+vec invAtanLF(vec x, double r) {
+  // arctangent-family link function, spreading range range, where c=1
+  // corresponds to the semicircle, and c=2 is most common.
+  return tan(x/r);
+}
+double invAtanLFdouble(double x, double r) {
+  // arctangent-family link function, spreading range range, where c=1
+  // corresponds to the semicircle, and c=2 is most common.
+  return tan(x/r);
 }
 
 
@@ -153,10 +171,10 @@ vec sampleKappa(double etag, int eta) {
   do {
 
     // Draw values from the gamma distribution with the
-    // tweaked parameters
+    // tweaked parameters.
     x = rgamma(1, eta * alph + 1, 1.0 / (eta * beta))[0];
 
-    // Save the number of candidates
+    // Save the number of candidates.
     nAttempts++;
 
     if (x > eps) {
@@ -314,7 +332,7 @@ vec computeHDI(vec x, double cip) {
 
 
 // [[Rcpp::export]]
-double rhsll(double b0, double kp, rowvec bt,
+double rhsll(double b0, double kp, vec bt,
              vec th, mat X, double r) {
   // The log-likelihood for use in the MCMC-algorithm. For speed-up the constant
   // addition can be skipped for MH-steps for which the left-hand side is indeed
@@ -323,9 +341,9 @@ double rhsll(double b0, double kp, rowvec bt,
 
   mat X_bybt = X;
 
-  X_bybt.each_row() %= bt;
+  X_bybt.each_row() %= bt.t();
 
-  double rhs = arma::sum(cos(th - b0 - atanlf(arma::sum(X_bybt, 1), r)));
+  double rhs = arma::sum(cos(th - b0 - atanLF(arma::sum(X_bybt, 1), r)));
 
   return rhs * kp;
 }
@@ -384,7 +402,8 @@ Rcpp::List circGLMC(vec th, mat X,
                     vec conj_prior, mat bt_prior,
                     vec starting_values, int burnin, int lag,
                     vec bwb, double kappaModeEstBandwith, double CIsize,
-                    int Q, double r, bool returnPostSample, int bt_prior_type) {
+                    int Q, double r, bool returnPostSample,
+                    int bt_prior_type, bool reparametrize) {
 
   //  To measure time taken.
   clock_t begin = clock();
@@ -402,10 +421,13 @@ Rcpp::List circGLMC(vec th, mat X,
   vec b0_chain = zeros<vec>(Q);
   vec kp_chain = zeros<vec>(Q);
   mat bt_chain = zeros<mat>(Q, K);
+  mat zt_chain = zeros<mat>(Q, K);
+
 
   double b0_cur       = starting_values(0);
   double kp_cur       = starting_values(1);
-  rowvec bt_cur = starting_values(arma::span(2, K + 1)).t();
+  vec bt_cur = starting_values(arma::span(2, K + 1));
+  vec zt_cur = invAtanLF(bt_cur, atan(1.0)*2);
 
   double b0_prior = conj_prior(0);
   double R_prior  = conj_prior(1);
@@ -425,7 +447,8 @@ Rcpp::List circGLMC(vec th, mat X,
   vec psi    = zeros<vec>(n);
 
   // Candidate for vector of predictors.
-  rowvec bt_can = zeros<rowvec>(K);
+  vec bt_can = zeros<vec>(K);
+  vec zt_can = zeros<vec>(K);
 
   // Compute number of iterations, taking lag and burn-in into account.
   int Qbylag = Q * lag + burnin;
@@ -435,12 +458,13 @@ Rcpp::List circGLMC(vec th, mat X,
   for (int i = 0; i < Qbylag; i++)
   {
 
+
     // Obtain an n*K matrix with beta_k * x_{i, k} in each cell.
     X_bybt  = X;
-    X_bybt.each_row() %= bt_cur;
+    X_bybt.each_row() %= bt_cur.t();
 
     // Obtain psi and its current properties.
-    psi     = th - atanlf(sum(X_bybt, 1), r);
+    psi     = th - atanLF(sum(X_bybt, 1), r);
     C_psi   = as_scalar(arma::sum(cos(psi))) + C_prior;
     S_psi   = as_scalar(arma::sum(sin(psi))) + S_prior;
     R_psi   = sqrt(pow(C_psi, 2) + pow(S_psi, 2));
@@ -454,12 +478,30 @@ Rcpp::List circGLMC(vec th, mat X,
     sk_res  = sampleKappa(etag, n_post);
     kp_cur  = sk_res(0);
 
+    // After we are done with the burn-in, start gathering the amount of nAttempts
+    // that we need every time.
+    if (i >= burnin)
+    {
+      nkpcan += sk_res(1);
+    }
 
     // Draw and possibly accept candidates, in sequence, for each of the K
     // predictors.
     for(int k = 0; k < K; k++) {
 
-      bt_can(k) += runif(1, -bwb(k), bwb(k))[0];
+      if (!reparametrize) {
+        bt_can(k) += runif(1, -bwb(k), bwb(k))[0];
+      } else {
+        zt_can(k) += runif(1, -bwb(k), bwb(k))[0];
+
+        // Because zeta = -1 and zeta = 1 are essentially equal when r=2, we
+        // allow the algorithm to "jump" from one side to the other.
+        if (r == 2.0) {
+          if (zt_can(k) < -1) zt_can(k) += 2;
+          if (zt_can(k) >= 1) zt_can(k) -= 2;
+        }
+        bt_can(k) = atanLFdouble(zt_can(k), atan(1.0)*2);
+      }
 
       // Get the MH-ratio for constant prior or normal prior.
       if (bt_prior_type == 0)
@@ -493,24 +535,21 @@ Rcpp::List circGLMC(vec th, mat X,
       }
     }
 
-
-    // After we are done with the burn-in, start gathering the amount of nAttempts
-    // that we need every time.
-    if (i >= burnin)
-    {
-      nkpcan += sk_res(1);
-    }
+    // Obtain reparametrized estimates.
+    zt_cur = invAtanLF(bt_cur, atan(1.0)*2);
 
     // For non-thinned out iterations, save the current values.
     if ( (i % lag == 0) & (i >= burnin))
     {
       b0_chain(isav)     = b0_cur;
       kp_chain(isav)     = kp_cur;
-      bt_chain.row(isav) = bt_cur;
+      bt_chain.row(isav) = bt_cur.t();
+      zt_chain.row(isav) = zt_cur.t();
 
       isav++;
     }
   }
+
 
   //  Estimated values
   double b0_meandir = computeMeanDirection(b0_chain);
@@ -518,6 +557,8 @@ Rcpp::List circGLMC(vec th, mat X,
   double kp_mode    = estimateMode(kp_chain, kappaModeEstBandwith);
   rowvec bt_mean = zeros<rowvec>(K);
   bt_mean = arma::mean(bt_chain, 0);
+  rowvec zt_mean = zeros<rowvec>(K);
+  zt_mean = arma::mean(zt_chain, 0);
 
 
   // Bounds for the CCI's
@@ -528,12 +569,14 @@ Rcpp::List circGLMC(vec th, mat X,
   vec b0_CCI  = circQuantile(b0_chain, qbounds);
   vec kp_HDI  = computeHDI(kp_chain, CIsize);
 
-  // Matrix with CCI's for beta.
+  // Matrix with CCI's for beta and zeta.
   mat bt_CCI  = mat(2, K);
+  mat zt_CCI  = mat(2, K);
 
   for (int predi = 0; predi < K; predi++)
   {
      bt_CCI.col(predi) = quantile(bt_chain.col(predi), qbounds);
+     zt_CCI.col(predi) = quantile(zt_chain.col(predi), qbounds);
   }
 
   // Proportion of values for kappa that was accepted.
@@ -554,6 +597,9 @@ Rcpp::List circGLMC(vec th, mat X,
   out["bt_CCI"]     = bt_CCI;
   out["bt_propacc"] = Rcpp::wrap(propaccbt.t());
 
+  out["zt_mean"]    = zt_mean;
+  out["zt_CCI"]     = zt_CCI;
+
   out["SavedIts"]   = Rcpp::wrap(Q);
   out["TotalIts"]   = Rcpp::wrap(Qbylag);
 
@@ -567,6 +613,7 @@ Rcpp::List circGLMC(vec th, mat X,
     out["b0_chain"] = b0_chain;
     out["kp_chain"] = kp_chain;
     out["bt_chain"] = bt_chain;
+    out["zt_chain"] = zt_chain;
   }
 
 

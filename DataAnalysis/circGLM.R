@@ -15,7 +15,7 @@ findPlotGridForm <- function(n, tasp) {
 
   # If prime, try again with n+1
   if (length(ftr) < 3) {
-    return(plotblock(n+1, tasp))
+    return(findPlotGridForm(n+1, tasp))
 
     # Otherwise figure out which factor provides an aspect ratio closest to the
     # target.
@@ -26,14 +26,22 @@ findPlotGridForm <- function(n, tasp) {
   }
 }
 
-
-plot.circGLM <- function(m, tasp=1) {
+# Coef is beta or zeta depending on which should be used.
+plot.circGLM <- function(m, tasp=1, coef="Beta") {
 
   if (is.null(m$b0_chain)) {
     warning("No posterior sample saved for this result.")
   } else {
 
 
+    if (coef == "Beta") {
+      coef_chain <- m$bt_chain
+    } else if (coef == "Zeta") {
+      coef_chain <- m$zt_chain
+    } else {
+      stop("Coef type not found")
+    }
+    
     # Find nice dimensions of the grid of plots.
     npanel <- min(ncol(m$bt_chain)+2, 16)
     mfr <- findPlotGridForm(npanel, tasp)
@@ -43,8 +51,8 @@ plot.circGLM <- function(m, tasp=1) {
     if (m$SavedIts < 5000) {
       plot.ts(m$b0_chain, xlab="Iteration", ylab="Beta_0", main="Beta_0 chain")
       plot.ts(m$kp_chain, xlab="Iteration", ylab="Kappa", main="Kappa chain")
-      apply(m$bt_chain, 2, plot.ts,
-            xlab="Iteration", ylab="Beta", main="Beta chain")
+      apply(coef_chain, 2, plot.ts,
+            xlab="Iteration", ylab=coef, main=paste(coef, "chain"))
 
     # Otherwise plot only 5000 values, otherwise the plotting will be too slow.
     } else {
@@ -53,9 +61,10 @@ plot.circGLM <- function(m, tasp=1) {
               xlab="Iteration", ylab="Beta_0", pch=NA, main="Beta_0 chain")
       plot.ts(x=idx, y=m$kp_chain[idx], xy.lines=TRUE,
               xlab="Iteration", ylab="Kappa", pch=NA, main="Kappa chain")
-      apply(m$bt_chain[idx, ], 2,
-            function(btchain) plot.ts(x=idx, y=btchain, xy.lines=TRUE,
-                                      xlab="Iteration", ylab="Beta", pch=NA, main="Beta chain"))
+      apply(coef_chain[idx, , drop=FALSE], 2,
+            function(cfchn) plot.ts(x=idx, y=cfchn, xy.lines=TRUE,
+                                      xlab="Iteration", ylab=coef, 
+                                      main=paste(coef, "chain"), pch=NA))
     }
     par(old.par)
   }
@@ -78,8 +87,12 @@ fixResultNames <- function(nms){
   nms[grep("b0_CCI", nms)]     <- c("b0_CCI_LB", "b0_CCI_UB")
   nms[grep("kp_HDI", nms)]     <- c("kp_HDI_LB", "kp_HDI_UB")
   nms[grep("bt_mean", nms)]    <- paste0("bt_", 1:nbts, "_mean")
+  nms[grep("zt_mean", nms)]    <- paste0("zt_", 1:nbts, "_mean")
   nms[grep("bt_propacc", nms)] <- paste0("bt_", 1:nbts, "_propacc")
   nms[grep("bt_CCI", nms)] <- paste0("bt_",
+                                     rep(1:nbts, each=2),
+                                     c("_LB", "_UB"))
+  nms[grep("zt_CCI", nms)] <- paste0("zt_",
                                      rep(1:nbts, each=2),
                                      c("_LB", "_UB"))
   nms
@@ -88,12 +101,12 @@ fixResultNames <- function(nms){
 circGLM <- function(th, X, conj_prior, bt_prior, starting_values,
                     burnin, lag, bwb, kappaModeEstBandwith, CIsize,
                     Q=10000, r=2, returnPostSample=FALSE, bt_prior_type=1,
-                    output = "list") {
+                    output = "list", reparametrize) {
 
 
   res <- circGLMC(th, X, conj_prior, bt_prior, starting_values,
                   burnin, lag, bwb, kappaModeEstBandwith, CIsize,
-                  Q, r, returnPostSample, bt_prior_type)
+                  Q, r, returnPostSample, bt_prior_type, reparametrize)
 
   # Drop each superfluous dimension, which are a result of Rcpp's treatment of
   # Armadillo's arma::mat and arma::vec objects.
@@ -105,6 +118,8 @@ circGLM <- function(th, X, conj_prior, bt_prior, starting_values,
   names(res$bt_propacc) <- paste0("bt_", 1:length(res$bt_propacc))
   colnames(res$bt_CCI)  <- paste0("bt_", 1:ncol(res$bt_CCI))
   rownames(res$bt_CCI)  <- c("LB", "UB")
+  colnames(res$zt_CCI)  <- paste0("zt_", 1:ncol(res$zt_CCI))
+  rownames(res$zt_CCI)  <- c("LB", "UB")
 
   # Add a class 'circGLM', which will make the defined plot and print methods
   # for this class work.
