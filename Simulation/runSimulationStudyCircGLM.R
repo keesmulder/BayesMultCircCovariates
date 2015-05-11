@@ -17,7 +17,7 @@ truebts <- sapply(1:length(nbts), function(i) {
   out
 })
 
-nsim <- 10000
+nsim <- 10
 
 # Save the datasets as .csv files.
 saveCircGLMDatasets(truens = truens, truekps = truekps, truebts = truebts,
@@ -27,7 +27,7 @@ saveCircGLMDatasets(truens = truens, truekps = truekps, truebts = truebts,
 mcmcpar=list(conj_prior = rep(0, 3), bt_prior_type=1,
              Q=10000, burnin = 100, lag = 1,
              kappaModeEstBandwith=.05, CIsize=.95,
-             r=2)
+             r=2, reparametrize=TRUE)
 
 # Generate the designs for Beta
 betaDesigns <- lapply(1:length(nbts), function(i){
