@@ -4,7 +4,6 @@
 # Runs an MCMC sampler for circular data.
 #
 # Kees Tim Mulder
-# Last updated: December 2014
 #
 #
 
@@ -28,10 +27,14 @@ TODO
 
 #include <iostream>
 #include <math.h>
+#include <typeinfo>
+
 
 using namespace Rcpp;
 using namespace std;
 using namespace arma;
+//
+const double pi = boost::math::constants::pi<double>();
 
 
 // TODO:
@@ -39,30 +42,33 @@ using namespace arma;
 
 // [[Rcpp::export]]
 vec atanLF(vec x, double r) {
-  // arctangent-family link function, spreading range range, where c=1
-  // corresponds to the semicircle, and c=2 is most common.
+  // arctangent-family link function, spreading range r, where r=1
+  // corresponds to the semicircle, and r=2 is most common.
   return r * atan(x);
 }
 // [[Rcpp::export]]
 double atanLFdouble(double x, double r) {
-  // arctangent-family link function, spreading range range, where c=1
-  // corresponds to the semicircle, and c=2 is most common.
+  // arctangent-family link function, spreading range r, where r=1
+  // corresponds to the semicircle, and r=2 is most common.
   return r * atan(x);
 }
 
 // [[Rcpp::export]]
 vec invAtanLF(vec x, double r) {
-  // arctangent-family link function, spreading range range, where c=1
-  // corresponds to the semicircle, and c=2 is most common.
+  // arctangent-family inverse link function, spreading range r, where r=1
+  // corresponds to the semicircle, and r=2 is most common.
   return tan(x/r);
 }
+
+// [[Rcpp::export]]
 double invAtanLFdouble(double x, double r) {
-  // arctangent-family link function, spreading range range, where c=1
-  // corresponds to the semicircle, and c=2 is most common.
+  // arctangent-family inverse link function, spreading range r, where r=1
+  // corresponds to the semicircle, and r=2 is most common.
   return tan(x/r);
 }
 
 
+// [[Rcpp::export]]
 NumericVector rvmc(int n, double mu, double kp) {
   /* FUNCTION rvmc -------------------------------------------
   Generate random variates from the von Mises distribution.
@@ -77,7 +83,7 @@ NumericVector rvmc(int n, double mu, double kp) {
   // If kappa is very small, return a circular uniform draw, as otherwise the
   // algorithm will fail.
   if (kp < .0000001) {
-      return runif(n, 0, 4.0*atan(1));
+      return runif(n, 0, pi);
   }
 
   NumericVector th(n);
@@ -99,7 +105,7 @@ NumericVector rvmc(int n, double mu, double kp) {
       u3 = runif(1, 0, 1)[0];
 
       // STEP 1
-      z = cos(4*atan(1)*u1);
+      z = cos(pi*u1);
       f = (1 + r*z)/(r + z);
       c = kp * (r - f);
 
@@ -117,7 +123,7 @@ NumericVector rvmc(int n, double mu, double kp) {
       sn = -1;
     }
 
-    th[i] = fmod(sn * acos(f) + mu, 8.0*atan(1));
+    th[i] = fmod(sn * acos(f) + mu, 2.0*pi);
   }
 
   return th;
@@ -181,7 +187,7 @@ vec sampleKappa(double etag, int eta) {
 
       // Compute kp_can and v
       kp_can = x - eps;
-      c6 = 0.5 * log(8 * atan(1) * kp_can) - kp_can;
+      c6 = 0.5 * log(2 * pi * kp_can) - kp_can;
       u  = runif(1, 0, 1)[0];
       v1 = log(u) / eta - (beta - g) * (kp_can - k0);
       v2 = alph * log((kp_can+eps) / (k0 + eps)) - c5;
@@ -248,7 +254,7 @@ vec quantile(vec x, vec q) {
 vec circQuantile(arma:: vec th, vec q) {
   // Compute a circular quantile.
 
-  double rotation = computeMeanDirection(th) - 4 * atan(1);
+  double rotation = computeMeanDirection(th) - pi;
 
   return quantile(th + rotation, q) - rotation;
 }
@@ -336,8 +342,8 @@ double rhsll(double b0, double kp, vec bt,
              vec th, mat X, double r) {
   // The log-likelihood for use in the MCMC-algorithm. For speed-up the constant
   // addition can be skipped for MH-steps for which the left-hand side is indeed
-  // a constant (ie., not kappa) The right-hand side of the log-likelihood
-  // function.
+  // a constant (that is, everything but kappa) The right-hand side of the
+  // log-likelihood function.
 
   mat X_bybt = X;
 
@@ -371,7 +377,7 @@ vec logProbNormal (vec x, vec mu, vec sd)
 {
   // Compute the log of the probability of the normal distribution for a vector
   // of x's, means and sd's.
-  return -log(sd) - log (sqrt(8.0 * atan(1))) -
+  return -log(sd) - log (sqrt(2*pi)) -
           ( pow(x - mu, 2) / (2 * pow(sd, 2) ) );
 }
 
@@ -403,12 +409,17 @@ Rcpp::List circGLMC(vec th, mat X,
                     vec starting_values, int burnin, int lag,
                     vec bwb, double kappaModeEstBandwith, double CIsize,
                     int Q, double r, bool returnPostSample,
-                    int bt_prior_type, bool reparametrize) {
+                    int bt_prior_type, bool reparametrize,
+                    bool debug, bool loopDebug) {
+
+
+  if (debug) std::cout << "--- Start --- " << std::endl << " - Initialize: a, ";
 
   //  To measure time taken.
   clock_t begin = clock();
 
   double C_psi, S_psi, R_psi, psi_bar, bt_lograt, etag;
+  double piOver2 = pi/2;
 
   // Sample size n and number of predictors K.
   int n = th.n_elem;
@@ -417,17 +428,23 @@ Rcpp::List circGLMC(vec th, mat X,
   int nkpcan = 0; // Number of candidates for kappa
   vec nbtacc = zeros<vec>(K); // Vector with # accepted beta's.
 
+  if (debug) std::cout << "b, ";
 
   vec b0_chain = zeros<vec>(Q);
   vec kp_chain = zeros<vec>(Q);
   mat bt_chain = zeros<mat>(Q, K);
   mat zt_chain = zeros<mat>(Q, K);
 
+  if (debug) std::cout << "c, ";
 
   double b0_cur       = starting_values(0);
   double kp_cur       = starting_values(1);
+  double bt_cur_prior = 0;
+  double bt_can_prior = 0;
   vec bt_cur = starting_values(arma::span(2, K + 1));
-  vec zt_cur = invAtanLF(bt_cur, atan(1.0)*2);
+  vec zt_cur = atanLF(bt_cur, 1/piOver2);
+
+  if (debug) std::cout << "d, ";
 
   double b0_prior = conj_prior(0);
   double R_prior  = conj_prior(1);
@@ -436,9 +453,11 @@ Rcpp::List circGLMC(vec th, mat X,
   double S_prior  = R_prior * sin(b0_prior);
   int    n_post   = n + n_prior;
 
+  if (debug) std::cout << "e, ";
 
   // To hold the results of the sampleKappa-function
   vec sk_res = zeros<vec>(2);
+
 
   // Sum of beta*x of each predictor, before link function.
   mat X_bybt = zeros<mat>(n, K);
@@ -450,18 +469,25 @@ Rcpp::List circGLMC(vec th, mat X,
   vec bt_can = zeros<vec>(K);
   vec zt_can = zeros<vec>(K);
 
+  if (debug) std::cout << "f, ";
+
   // Compute number of iterations, taking lag and burn-in into account.
   int Qbylag = Q * lag + burnin;
   int isav = 0; // Keeps track of where to save those values not thinned out.
 
+  if (debug) std::cout << "g - End Initialize. -" << std::endl << " - Loop: ";
 
   for (int i = 0; i < Qbylag; i++)
   {
+
+    if (loopDebug & (i==0)) std::cout << "a, ";
 
 
     // Obtain an n*K matrix with beta_k * x_{i, k} in each cell.
     X_bybt  = X;
     X_bybt.each_row() %= bt_cur.t();
+
+    if (loopDebug & (i==0)) std::cout << "b, ";
 
     // Obtain psi and its current properties.
     psi     = th - atanLF(sum(X_bybt, 1), r);
@@ -470,13 +496,19 @@ Rcpp::List circGLMC(vec th, mat X,
     R_psi   = sqrt(pow(C_psi, 2) + pow(S_psi, 2));
     psi_bar = atan2(S_psi, C_psi);
 
+    if (loopDebug & (i==0)) std::cout << "c, ";
+
     // Obtain a new value for Beta_0
     b0_cur = rvmc(1, psi_bar, R_psi * kp_cur)[0];
+
+    if (loopDebug & (i==0)) std::cout << "d, ";
 
     // Sample a new value for kappa.
     etag    = - R_psi * cos(b0_cur - psi_bar);
     sk_res  = sampleKappa(etag, n_post);
     kp_cur  = sk_res(0);
+
+    if (loopDebug & (i==0)) std::cout << "e, ";
 
     // After we are done with the burn-in, start gathering the amount of nAttempts
     // that we need every time.
@@ -485,14 +517,21 @@ Rcpp::List circGLMC(vec th, mat X,
       nkpcan += sk_res(1);
     }
 
+    if (loopDebug & (i==0)) std::cout << "f, [[";
+
     // Draw and possibly accept candidates, in sequence, for each of the K
     // predictors.
     for(int k = 0; k < K; k++) {
 
+      if (loopDebug & (i==0)) std::cout << "bt_" << k+1 << "{1";
+
       if (!reparametrize) {
         bt_can(k) += runif(1, -bwb(k), bwb(k))[0];
+        if (loopDebug & (i==0)) std::cout << "2a";
       } else {
         zt_can(k) += runif(1, -bwb(k), bwb(k))[0];
+
+        if (loopDebug & (i==0)) std::cout << "2b";
 
         // Because zeta = -1 and zeta = 1 are essentially equal when r=2, we
         // allow the algorithm to "jump" from one side to the other.
@@ -500,27 +539,42 @@ Rcpp::List circGLMC(vec th, mat X,
           if (zt_can(k) < -1) zt_can(k) += 2;
           if (zt_can(k) >= 1) zt_can(k) -= 2;
         }
-        bt_can(k) = atanLFdouble(zt_can(k), atan(1.0)*2);
+
+        if (loopDebug & (i==0)) std::cout << "b";
+
+        // Move the new zeta-candidate back to the beta parametrization, as the
+        // likelihoods are assessed on that scale.
+        bt_can(k) = invAtanLFdouble(zt_can(k), 1/piOver2);
       }
 
-      // Get the MH-ratio for constant prior or normal prior.
-      if (bt_prior_type == 0)
+      if (loopDebug & (i==0)) std::cout << "3";
+
+//       if (loopDebug & (i==0)) {
+//         std::cout << typeid(bt_can.t()).name() << '\n';
+//         std::cout << typeid(bt_prior.col(0)).name() << '\n';
+//         std::cout << typeid(bt_prior.col(1)).name() << '\n';
+//       }
+
+      // Set the priors for bt constant prior or normal prior.
+      if (bt_prior_type == 1)
       {
-        bt_lograt = rhsll(b0_cur, kp_cur, bt_can, th, X, r) -
-                    rhsll(b0_cur, kp_cur, bt_cur, th, X, r);
+        bt_can_prior = arma::sum(logProbNormal(bt_can,
+                                               bt_prior.col(0),
+                                               bt_prior.col(1)));
+        bt_cur_prior = arma::sum(logProbNormal(bt_cur,
+                                               bt_prior.col(0),
+                                               bt_prior.col(1)));
       }
       else
       {
-
-        bt_lograt = rhsll(b0_cur, kp_cur, bt_can, th, X, r) +
-                    arma::sum(logProbNormal(bt_can.t(),
-                                            bt_prior.col(0),
-                                            bt_prior.col(1))) -
-                    rhsll(b0_cur, kp_cur, bt_cur, th, X, r) -
-                    arma::sum(logProbNormal(bt_cur.t(),
-                                            bt_prior.col(0),
-                                            bt_prior.col(1)));
+        bt_can_prior = 0;
+        bt_cur_prior = 0;
       }
+
+      if (loopDebug & (i==0)) std::cout << "4";
+
+      bt_lograt = rhsll(b0_cur, kp_cur, bt_can, th, X, r) + bt_can_prior -
+                  rhsll(b0_cur, kp_cur, bt_cur, th, X, r) - bt_cur_prior;
 
       // Accept the candidate according to the MH-ratio.
       if (bt_lograt > log(runif(1, 0, 1)[0]))
@@ -533,14 +587,21 @@ Rcpp::List circGLMC(vec th, mat X,
       {
         bt_can(k) = bt_cur(k);
       }
+
+      if (loopDebug & (i==0)) std::cout << "5}, ";
     }
+    if (loopDebug & (i==0)) std::cout << "]], g, ";
 
     // Obtain reparametrized estimates.
-    zt_cur = invAtanLF(bt_cur, atan(1.0)*2);
+    zt_cur = atanLF(bt_cur, 1/piOver2);
+
+    if (loopDebug & (i==0)) std::cout << "h, ";
 
     // For non-thinned out iterations, save the current values.
     if ( (i % lag == 0) & (i >= burnin))
     {
+      if (loopDebug & (i==0)) std::cout << "sav, ";
+
       b0_chain(isav)     = b0_cur;
       kp_chain(isav)     = kp_cur;
       bt_chain.row(isav) = bt_cur.t();
@@ -548,30 +609,57 @@ Rcpp::List circGLMC(vec th, mat X,
 
       isav++;
     }
+
+    if (loopDebug & (i==0)) std::cout << "done. ";
   }
+
+  if (debug) std::cout << "End Loop. -" << std::endl << "Gather results: a, ";
+
 
 
   //  Estimated values
   double b0_meandir = computeMeanDirection(b0_chain);
   double kp_mean    = arma::mean(kp_chain);
   double kp_mode    = estimateMode(kp_chain, kappaModeEstBandwith);
-  rowvec bt_mean = zeros<rowvec>(K);
-  bt_mean = arma::mean(bt_chain, 0);
-  rowvec zt_mean = zeros<rowvec>(K);
-  zt_mean = arma::mean(zt_chain, 0);
 
+  if (debug) std::cout << "b, ";
+
+  rowvec bt_mean    = zeros<rowvec>(K);
+  bt_mean           = arma::mean(bt_chain, 0);
+
+  rowvec zt_mean    = zeros<rowvec>(K);
+  zt_mean           = arma::mean(zt_chain, 0);
+
+  if (debug) std::cout << "c, ";
+
+  // Get a mean direction representation of the predictors (considering the
+  // periodicity of their space of origin), which may or may not perform better
+  // than the simple linear mean.
+  rowvec zt_meandir = zeros<rowvec>(K);
+  for (int predi = 0; predi < K; predi++)
+  {
+    zt_meandir(predi) = computeMeanDirection(zt_chain.col(predi)*pi)/pi;
+  }
+
+  if (debug) std::cout << "d, ";
 
   // Bounds for the CCI's
   vec qbounds = vec(2);
-  qbounds(0) = (1-CIsize)/2.0;
-  qbounds(1) = 1-((1-CIsize)/2.0);
+  qbounds(0)  = (1-CIsize)/2.0;
+  qbounds(1)  = 1-((1-CIsize)/2.0);
+
+  if (debug) std::cout << "e, ";
 
   vec b0_CCI  = circQuantile(b0_chain, qbounds);
   vec kp_HDI  = computeHDI(kp_chain, CIsize);
 
+  if (debug) std::cout << "f, ";
+
   // Matrix with CCI's for beta and zeta.
   mat bt_CCI  = mat(2, K);
   mat zt_CCI  = mat(2, K);
+
+  if (debug) std::cout << "g, ";
 
   for (int predi = 0; predi < K; predi++)
   {
@@ -579,9 +667,13 @@ Rcpp::List circGLMC(vec th, mat X,
      zt_CCI.col(predi) = quantile(zt_chain.col(predi), qbounds);
   }
 
+  if (debug) std::cout << "h, ";
+
   // Proportion of values for kappa that was accepted.
   double propacckp    = (double) Q * (double) lag / (double) nkpcan;
   vec propaccbt = nbtacc / ((double) Q * (double) lag);
+
+  if (debug) std::cout << "i, ";
 
   Rcpp::List out;
 
@@ -598,6 +690,7 @@ Rcpp::List circGLMC(vec th, mat X,
   out["bt_propacc"] = Rcpp::wrap(propaccbt.t());
 
   out["zt_mean"]    = zt_mean;
+  out["zt_mdir"]    = zt_meandir;
   out["zt_CCI"]     = zt_CCI;
 
   out["SavedIts"]   = Rcpp::wrap(Q);
@@ -607,6 +700,7 @@ Rcpp::List circGLMC(vec th, mat X,
   clock_t end = clock();
   out["TimeTaken"] = double(end - begin) / CLOCKS_PER_SEC;
 
+  if (debug) std::cout << "j. ";
 
   if (returnPostSample)
   {
@@ -615,7 +709,7 @@ Rcpp::List circGLMC(vec th, mat X,
     out["bt_chain"] = bt_chain;
     out["zt_chain"] = zt_chain;
   }
-
+  if (debug) std::cout << "End Gather -" << std::endl << std::endl;
 
   return out;
 }

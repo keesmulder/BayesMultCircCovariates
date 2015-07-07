@@ -85,7 +85,7 @@
 
 Circular data is data that is measured in angles or directions. They are frequently encountered in scientific fields as diverse as Molecular Biology, Cognitive Psychology, Political Science \citep{gill2010} and Earth Sciences. Circular data differ from linear data in the sense that circular data are measured in a periodical sample space. For example, an angle of $1^{\circ}$ is quite close to an angle $359^{\circ},$ although linear intuition would suggest otherwise.
 
-Because of this, linear models may not fully describe the process that has generated the circular data of interest. Circular data analysis has been developed to deal with this, but the attention to this type of data has been limited. Only slightly more than a handful of in-depth books on circular data analysis have been published \citep{fisher1995statistical,mardia1999directional,pewsey2013circular}, and statistical methods are generally fairly limited. The Bayesian paradigm, in particular MCMC methods, may provide a flexible approach to analyzing circular data.
+Because of this, linear models may not describe the process that has generated the circular data of interest well. Circular data analysis has been developed to deal with this, but the attention to this type of data has been limited. Only slightly more than a handful of in-depth books on circular data analysis have been published \citep{fisher1995statistical,mardia1999directional,pewsey2013circular}, and statistical methods are generally fairly limited. The Bayesian paradigm, in particular MCMC methods, may provide a flexible approach to analyzing circular data.
 
 The circular analogue to the normal distribution is the von Mises distribution \citep{von1918ganzzahligkeit}. This symmetric unimodal distribution is given by
 \begin{equation}
@@ -115,7 +115,7 @@ The link function maps $\boldsymbol\beta^T \boldsymbol{x}_i \in \mathbb{R}$ to t
 A popular choice is
 \begin{equation}
 g(x) = 2 \tan^{-1}(x),
-\end{equation} because for this link function $g(0) = 0,$ and because its range is $\mathbb{S}^1$, which allows the predicted values across the entire circle. This link function is shown in figure \ref{linkfunc}. To ensure that all , all predictors must be standardized. 
+\end{equation} because for this link function $g(0) = 0,$ and because its range is $\mathbb{S}^1$, which allows the predicted values across the entire circle. This link function is shown in figure \ref{linkfunc}. To ensure that all , all predictors must be standardized.
 
 \begin{figure}
 \begin{knitrout}
@@ -142,8 +142,22 @@ L(\beta_0, \boldsymbol{\beta}, \kappa \vert \boldsymbol{\theta}, \boldsymbol{X})
 
 It can be shown (see Appendix A) that the conditional distribution of $\beta_0$ is proportional to $\mathcal{VM}(\beta_0 \vert \bar\psi, R_{\psi} \kappa).$ This makes it straightforward to sample from $\beta_0$ as in \citet{fisher1995statistical}. Conditionals for $\kappa$ and $\boldsymbol\beta$ are not of simple form and require special attention.
 
+\subsection{Prior}
 
-\subsection{Shape of the conditional likelihood of $\beta$}
+For $\beta_0$ and $\kappa$, a conjugate prior will be used. Setting $\psi_i = \theta_i - g(\boldsymbol\beta^T \boldsymbol{x}_i)$ leaves us with simply the regular von Mises likelihood $L_{\mathcal{VM}}(\beta_0, \kappa \vert \boldsymbol\psi)$, where $\beta_0$ is the mean direction. \citet{guttorp1988finding} present a conjugate prior for the von Mises distribution. Applied to this situation, it is given up to a constant of proportionality by
+\begin{equation}
+p(\mu_{\psi}, \kappa) \propto  I_0 (\kappa) ^{-c} \exp\{R_0 \kappa \cos (\mu_{\psi} - \mu_0)\},
+\end{equation}
+where $\mu_{\psi}$ represents the mean direction of the set of angles $\boldsymbol\psi$,  which represents $c$ observations of $\psi$ with prior mean direction $\mu_0$ and prior resultant length $R_0$. Note, however, that in this case this represents our prior information regarding the distribution of $\psi$ rather than $\theta$. Researchers may or may not be able to formulate prior expectations exist about $\mu_{\psi}$ and $\kappa$. Regardless, this method allows straightforward specification of a non-informative prior by setting $R_0 = 0$ and $c = 0$.
+
+For each $\beta$, a normal prior will be specified as
+\begin{equation}
+\beta \sim N(0, 10).
+\end{equation}
+
+
+
+\subsection{Shape of the conditional likelihood and posterior of $\beta$}
 
 
 
@@ -208,7 +222,6 @@ Another example dataset is given in Figure \ref{ZeroBData}. Here, true $\beta$ i
 
 \end{knitrout}
 \caption{Relationship between the predictor $X$ and circular outcome $\theta$ in a simple case.}
-\label{ZeroBData}
 \end{figure}
 
 
@@ -226,29 +239,60 @@ Another example dataset is given in Figure \ref{ZeroBData}. Here, true $\beta$ i
 
 \end{knitrout}
 \caption{Shape of the conditional likelihood for three different values for $\beta_0$.}
-\label{ZeroBBeta}
 \end{figure}
 
-The standard deviation of the normal prior
+\begin{figure}
+\label{ZeroBBetaNormalPrior}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
 
-\subsection{Prior}
+{\centering \includegraphics[width=\maxwidth]{figure/ZeroBBetaNormalPrior-1} 
 
-For $\beta_0$ and $\kappa$, a conjugate prior will be used. Setting $\psi_i = \theta_i - g(\boldsymbol\beta^T \boldsymbol{x}_i)$ leaves us with simply the regular von Mises likelihood $L_{\mathcal{VM}}(\beta_0, \kappa \vert \boldsymbol\psi)$, where $\beta_0$ is the mean direction. \citet{guttorp1988finding} present a conjugate prior for the von Mises distribution. Applied to this situation, it is given up to a constant of proportionality by
-\begin{equation}
-p(\mu_{\psi}, \kappa) \propto  I_0 (\kappa) ^{-c} \exp\{R_0 \kappa \cos (\mu_{\psi} - \mu_0)\},
-\end{equation}
-where $\mu_{\psi}$ represents the mean direction of the set of angles $\boldsymbol\psi$,  which represents $c$ observations of $\psi$ with prior mean direction $\mu_0$ and prior resultant length $R_0$. Note, however, that in this case this represents our prior information regarding the distribution of $\psi$ rather than $\theta$. Researchers may or may not be able to formulate prior expectations exist about $\mu_{\psi}$ and $\kappa$. Regardless, this method allows straightforward specification of a non-informative prior by setting $R_0 = 0$ and $c = 0$.
+}
 
-For each $\beta$, a normal prior will be specified as
-\begin{equation}
-\beta \sim N(0, 10).
-\end{equation}
+
+
+\end{knitrout}
+\caption{Shape of the conditional posterior for three different values for $\beta_0$.}
+\end{figure}
+
+The shape of the posterior is somewhat more regular, as seen in Figure \ref{ZeroBBetaNormalPrior}.
+
+
+\section{Categorical predictors}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{verbatim}
+## [1] 3.162
+\end{verbatim}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/CatData-1} 
+
+}
+
+
+
+\end{knitrout}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+
+{\centering \includegraphics[width=\maxwidth]{figure/CatBetaPlot-1} 
+
+}
+
+
+
+\end{knitrout}
+
 
 \section{MCMC Sampling}
 
 This section will provide some details as to the proposed MCMC-algorithm, given in Algorithm \ref{basealg}. The algorithm separates the sampling of $(\beta_0, \kappa)$ and $\boldsymbol\beta$ by calculating $\boldsymbol\psi$ and using $\boldsymbol\psi$ in obtaining $(\beta_0, \kappa)$. Sampling of $\kappa$ employs an algorithm discussed by \citet{forbes2014fast} and will not be repeated here.
 
-A random walk mechanism is employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside of this algorithm.
+A random walk mechanism is employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside of this algorithm. We might suggest using a default normal proposal for beta, because the expected area of the parameter space of $\beta$ will be known.
 
 \begin{algorithm}[H]
 
@@ -296,6 +340,7 @@ A random walk mechanism is employed for $\boldsymbol\beta$. This requires settin
  \caption{An algorithm for the given GLM approach}
  \label{basealg}
 \end{algorithm}
+
 
 
 

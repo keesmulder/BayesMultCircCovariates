@@ -41,7 +41,7 @@ plot.circGLM <- function(m, tasp=1, coef="Beta") {
     } else {
       stop("Coef type not found")
     }
-    
+
     # Find nice dimensions of the grid of plots.
     npanel <- min(ncol(m$bt_chain)+2, 16)
     mfr <- findPlotGridForm(npanel, tasp)
@@ -63,7 +63,7 @@ plot.circGLM <- function(m, tasp=1, coef="Beta") {
               xlab="Iteration", ylab="Kappa", pch=NA, main="Kappa chain")
       apply(coef_chain[idx, , drop=FALSE], 2,
             function(cfchn) plot.ts(x=idx, y=cfchn, xy.lines=TRUE,
-                                      xlab="Iteration", ylab=coef, 
+                                      xlab="Iteration", ylab=coef,
                                       main=paste(coef, "chain"), pch=NA))
     }
     par(old.par)
@@ -88,6 +88,7 @@ fixResultNames <- function(nms){
   nms[grep("kp_HDI", nms)]     <- c("kp_HDI_LB", "kp_HDI_UB")
   nms[grep("bt_mean", nms)]    <- paste0("bt_", 1:nbts, "_mean")
   nms[grep("zt_mean", nms)]    <- paste0("zt_", 1:nbts, "_mean")
+  nms[grep("zt_mdir", nms)]    <- paste0("zt_", 1:nbts, "_mdir")
   nms[grep("bt_propacc", nms)] <- paste0("bt_", 1:nbts, "_propacc")
   nms[grep("bt_CCI", nms)] <- paste0("bt_",
                                      rep(1:nbts, each=2),
@@ -98,19 +99,29 @@ fixResultNames <- function(nms){
   nms
 }
 
-circGLM <- function(th, X, conj_prior, bt_prior, starting_values,
-                    burnin, lag, bwb, kappaModeEstBandwith, CIsize,
+
+
+
+circGLM <- function(th, X, conj_prior = rep(0, 3), 
+                    bt_prior = matrix(0:1, nrow=ncol(X), ncol=2, byrow=TRUE), 
+                    starting_values = rep(1, ncol(X)+2),
+                    burnin = 1000, lag = 1, bwb = .05, 
+                    kappaModeEstBandwith = .1, CIsize = .95,
                     Q=10000, r=2, returnPostSample=FALSE, bt_prior_type=1,
-                    output = "list", reparametrize) {
+                    output = "list", reparametrize = FALSE, 
+                    debug=FALSE, loopDebug=FALSE) {
 
 
-  res <- circGLMC(th, X, conj_prior, bt_prior, starting_values,
-                  burnin, lag, bwb, kappaModeEstBandwith, CIsize,
-                  Q, r, returnPostSample, bt_prior_type, reparametrize)
-
-  # Drop each superfluous dimension, which are a result of Rcpp's treatment of
-  # Armadillo's arma::mat and arma::vec objects.
-#   res %<>% lapply(drop)
+  res <- circGLMC(th=th, X=X,
+                  conj_prior=conj_prior, bt_prior=bt_prior,
+                  starting_values=starting_values,
+                  burnin=burnin, lag=lag, bwb=bwb,
+                  kappaModeEstBandwith=kappaModeEstBandwith,
+                  CIsize=CIsize,
+                  Q=Q, r=r,
+                  returnPostSample=returnPostSample,
+                  bt_prior_type=bt_prior_type,
+                  reparametrize=reparametrize, debug=debug, loopDebug=loopDebug)
 
   # Set some names for clarity in the output.
   names(res$b0_CCI)     <- c("LB", "UB")
@@ -131,6 +142,8 @@ circGLM <- function(th, X, conj_prior, bt_prior, starting_values,
     return(res)
 
   } else if (output == "vector") {
+    if (returnPostSample == TRUE) {message("Vector output with full chains.")}
+
     out <- unlist(res)
     names(out) <- fixResultNames(names(out))
     return(out)

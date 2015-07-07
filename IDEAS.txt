@@ -1,0 +1,1 @@
+-> Change the uniform proposal to a normal around the current value. 

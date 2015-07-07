@@ -91,7 +91,7 @@ plot(simStudyResults, btDesNumber=5, n=12, kp=30, stat="kp_mode", breaks=100)
 plot(simStudyResults, btDesNumber=5, n=100, kp=30, stat="kp_mode", breaks=100)
 
 linkfun <- function(x) 2 * atan(x)
-generateBetaShapePlot(b0_cur = pi/2, true_b0 = pi/2, true_bt = -1, Xsd = 1, n = 100)
+# generateBetaShapePlot(b0_cur = pi/2, true_b0 = pi/2, true_bt = -1, Xsd = 1, n = 100)
 
 slice.cGLMSim(simStudyResults, btDesNumber=3, n=12, kp=0.5, stat="kp_mode")
 plot(simStudyResults, btDesNumber=3, n=12, kp=30, stat="kp_mode", breaks=100)

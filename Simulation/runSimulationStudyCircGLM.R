@@ -4,12 +4,13 @@ source('Simulation/simulationStudyCircGLM.R')
 library(dplyr)
 
 # Properties of the simulation study.
-truens  <- c(12, 100)
-truekps <- c(0.5, 30)
-# truebeta0 is pi/2
-nbts       <- c(1, 1, 3, 3, 6, 6)
-truebtvals <- c(0.1, -1, 0.1, -1, 0.1, -1)
-type       <- c("l", "l", "l", "l", "l", "l")
+truens  <- c(20, 50, 100)
+truekps <- c(1, 4, 32)
+# truebeta0 is always pi/2 because it should be irrelevant.
+
+nbts       <- rep(c(1, 3, 6), each=4)
+truebtvals <- rep(c(0.05, 0.3), times=6)
+type       <- rep(c("l","c"), times=3, each=2)
 
 truebts <- sapply(1:length(nbts), function(i) {
   out        <- list(rep(truebtvals[i], nbts[i]))
@@ -17,7 +18,7 @@ truebts <- sapply(1:length(nbts), function(i) {
   out
 })
 
-nsim <- 10
+nsim <- 1000
 
 # Save the datasets as .csv files.
 saveCircGLMDatasets(truens = truens, truekps = truekps, truebts = truebts,
@@ -25,7 +26,7 @@ saveCircGLMDatasets(truens = truens, truekps = truekps, truebts = truebts,
 
 # General MCMC parameters.
 mcmcpar=list(conj_prior = rep(0, 3), bt_prior_type=1,
-             Q=10000, burnin = 100, lag = 1,
+             Q=20000, burnin = 1000, lag = 1,
              kappaModeEstBandwith=.05, CIsize=.95,
              r=2, reparametrize=TRUE)
 
@@ -33,7 +34,7 @@ mcmcpar=list(conj_prior = rep(0, 3), bt_prior_type=1,
 betaDesigns <- lapply(1:length(nbts), function(i){
   c(truebts[i],
     list(starting_values=c(0, 1, rep(0, nbts[i])),
-         bt_prior=matrix(c(0,1), nc=2, nr=nbts[i], byrow = TRUE),
+         bt_prior=matrix(c(0,2), nc=2, nr=nbts[i], byrow = TRUE),
          bwb=rep(.05, nbts[i])))
 })
 

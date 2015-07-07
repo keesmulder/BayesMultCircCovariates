@@ -48,18 +48,18 @@ generateCircGLMData <- function(n=30, residkappa=5, nconpred=2, ncatpred=2,
   dmat   <- cbind(th, X)
 
   # Save the percentage of data that is found around the true beta_0.
-  uLB <- truebeta0-pi/2 %% (2*pi) 
-  uUB <- truebeta0+pi/2 %% (2*pi) 
+  uLB <- truebeta0-pi/2 %% (2*pi)
+  uUB <- truebeta0+pi/2 %% (2*pi)
   if (uLB < uUB) {
     u <- mean(uLB < th & th < uUB)
   } else {
     u <- mean(uLB < th | th < uUB)
   }
-  
+
   # Add the true values as attributes.
   attr(dmat, "truebeta0")  <- truebeta0
   attr(dmat, "truebeta")   <- truebeta
-  attr(dmat, "truezeta")   <- tan(truebeta)*2/pi
+  attr(dmat, "truezeta")   <- (2/pi)*atan(truebeta)
   attr(dmat, "residkappa") <- residkappa
   attr(dmat, "linkfun")    <- linkfun
   attr(dmat, "u")          <- u
@@ -77,6 +77,8 @@ saveCircGLMDatasets <- function (truens, truekps, truebts,
   # All designs we want to generate data for.
   designs <- expand.grid(n=truens, kp=truekps, bt=truebts,
                          stringsAsFactors=FALSE)
+
+  alreadyExistingCounter <- 0
 
   # Go through all designs.
   for (ides in 1:nrow(designs)) {
@@ -100,7 +102,6 @@ saveCircGLMDatasets <- function (truens, truekps, truebts,
     # Create a folder for the datasets
     dir.create(saveDirName, showWarnings=FALSE)
 
-    alreadyExistingCounter <- 0
 
     # Repeat generation nsim times.
     for (isim in 1:nsim) {
@@ -125,11 +126,11 @@ saveCircGLMDatasets <- function (truens, truekps, truebts,
 
     }
 
-    if (alreadyExistingCounter > 0) {
-      warning(paste0("For ", saveDirName, ", ", alreadyExistingCounter, "/", nsim,
-                     " datasets already existed."))
-    }
 
+  }
+  if (alreadyExistingCounter > 0) {
+    cat("\n[Data generation: ", alreadyExistingCounter, "/", nsim*nrow(designs),
+        " datasets already existed.]\n")
   }
 }
 

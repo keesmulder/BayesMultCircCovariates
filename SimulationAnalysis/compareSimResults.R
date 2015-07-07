@@ -13,7 +13,7 @@ print.comparecGLMSim <- function (obj) {
       ".\nUsing a ",
       paste0("(", paste0(attr(obj, 'priors'), collapse="|"), ")"),
       " prior for Beta.\n", sep="")
-  print.cGLMSim(obj, header=FALSE)
+  print.cGLMSim(obj, header=FALSE, selection="all")
 }
 
 compareSimRes <- function(..., type = "meansd", digits = 2) {
