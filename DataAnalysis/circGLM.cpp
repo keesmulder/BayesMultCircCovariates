@@ -439,9 +439,9 @@ Rcpp::List circGLMC(vec th, mat X,
 
   double b0_cur       = starting_values(0);
   double kp_cur       = starting_values(1);
+  vec bt_cur          = starting_values(arma::span(2, K + 1));
   double bt_cur_prior = 0;
   double bt_can_prior = 0;
-  vec bt_cur = starting_values(arma::span(2, K + 1));
   vec zt_cur = atanLF(bt_cur, 1/piOver2);
 
   if (debug) std::cout << "d, ";
