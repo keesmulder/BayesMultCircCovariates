@@ -129,15 +129,20 @@ NumericVector rvmc(int n, double mu, double kp) {
   return th;
 }
 
-
+// [[Rcpp::export]]
 double Wapprox (double t) {
   // Approximation of Lamberts W.
   return exp(1)*t /
   (1 + 1 / (pow(2 * exp(1) * t + 2, -0.5) + 1 / (exp(1) - 1) - pow(2, -0.5)));
 }
 
-
+// [[Rcpp::export]]
 vec sampleKappa(double etag, int eta) {
+  // Function to sample values for kappa in a von Mises distribution. Etag should
+  // be R * cos(mu - theta_bar). eta is the posterior n, which is n + c where c is
+  // the number of observations contained in the conjugate prior. For
+  // uninformative, c = 0 and eta = n.
+
   // beta_0 in Forbes & Mardia (2014) is renamed g here to avoid confusion with
   // the intercept in the GLM model.
   double g, kl, ku, c1, c2, c3, c4, c5, c6, beta, eps,
@@ -172,7 +177,7 @@ vec sampleKappa(double etag, int eta) {
   alph = (beta - g - r) * (k0 + eps);
   c5   = log(i0);
 
-  // Apply rejection sampler
+  // Apply rejection sampler.
   cont = TRUE;
   do {
 
@@ -185,7 +190,7 @@ vec sampleKappa(double etag, int eta) {
 
     if (x > eps) {
 
-      // Compute kp_can and v
+      // Compute kp_can and v.
       kp_can = x - eps;
       c6 = 0.5 * log(2 * pi * kp_can) - kp_can;
       u  = runif(1, 0, 1)[0];
@@ -200,6 +205,7 @@ vec sampleKappa(double etag, int eta) {
           cont = FALSE;
         }
       }
+
     }
   } while (cont);
 

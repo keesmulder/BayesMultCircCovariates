@@ -77,6 +77,12 @@
 
 \maketitle
 
+
+\tableofcontents
+
+
+\newpage
+
 % R setup.
 
 
@@ -100,7 +106,7 @@ Recent work has provided a multivariate extension of the von Mises distribution 
 
 In this paper, a novel fully Bayesian method for the analysis of circular data will be developed. Its application will be made accessible, and potential issues will be studied. The GLM approach to analysis of circular data is not free from the lack of concavity as described in \citet{gill2010}, although this has not been investigated in literature. In this paper, the GLM approach will be applied in a fully Bayesian setting. Furthermore, the lack of concavity in the likelihoods will be examined, and suggestions will be formulated on how to deal with this issue. Finally, simulations into its performance will be discussed.
 
-\section{The Model}
+\section{The model}
 
 Let $\boldsymbol\theta = \theta_1, \dots, \theta_n$ be a set of circular data, where each $\theta_i \in [-\pi, \pi)$, and let $\boldsymbol{X} = \boldsymbol{x}_1, \dots, \boldsymbol{x}_n$ be an $(n \times K)$ matrix of linear predictors. Assume that each observed angle $\theta$ is generated from an independent VM distribution $ VM(\theta_i \vert \hat{\theta_i}, \kappa)$. The predicted value $\hat{\theta_i}$ is given by
 \begin{equation}
@@ -150,28 +156,25 @@ p(\mu_{\psi}, \kappa) \propto  I_0 (\kappa) ^{-c} \exp\{R_0 \kappa \cos (\mu_{\p
 \end{equation}
 where $\mu_{\psi}$ represents the mean direction of the set of angles $\boldsymbol\psi$,  which represents $c$ observations of $\psi$ with prior mean direction $\mu_0$ and prior resultant length $R_0$. Note, however, that in this case this represents our prior information regarding the distribution of $\psi$ rather than $\theta$. Researchers may or may not be able to formulate prior expectations exist about $\mu_{\psi}$ and $\kappa$. Regardless, this method allows straightforward specification of a non-informative prior by setting $R_0 = 0$ and $c = 0$.
 
-For each $\beta$, a normal prior will be specified as
-\begin{equation}
-\beta \sim N(0, 10).
-\end{equation}
+For each $\beta$, a normal prior will be specified as $\beta \sim N(0, 10)$.
 
 
 
-\subsection{Shape of the conditional likelihood and posterior of $\beta$}
+\subsection{Conditional likelihood and posterior of $\beta$}
 
 
 
-The conditional log-likelihood of $\boldsymbol{\beta}$ is independent of $\kappa$ and given by
+The conditional log-likelihood of $\boldsymbol{\beta}$ is % independent of $\kappa$ and
+given by
 \begin{align}
 %L(\boldsymbol{\beta} \vert \beta_0, \boldsymbol{\theta}, \boldsymbol{X}) &\propto
 %\exp \left\lbrace \sum_{i=1}^{n} \cos \left[ \theta_i - \beta_0 - g(\boldsymbol\beta^T \boldsymbol{x}_i) \right]  \right\rbrace. \\
 \ell (\boldsymbol{\beta} \vert \beta_0, \boldsymbol{\theta}, \boldsymbol{X}) &\propto
-\sum_{i=1}^{n} \cos \left[ \theta_i - \beta_0 - g(\boldsymbol\beta^T \boldsymbol{x}_i) \right]  .
+\sum_{i=1}^{n} \cos \left[ \theta_i - \beta_0 - g(\boldsymbol\beta^T \boldsymbol{x}_i) \right].
 \end{align}
-For simplicity, we will consider the unidimensional case here.
+%For simplicity, we will consider the unidimensional case here.
 
-Due to the periodical nature of the outcome variable $\theta$, the conditional log-likelihood of some $\beta$ may have not be globally concave and may have more than one maximum. In this section, this issue will be explored. First, consider a simple dataset, with a single predictor $\boldsymbol{X} = \left\lbrace -3, -2, \dots, 2, 3 \right\rbrace $ that is standardized, and $\theta_i = \frac{\pi}{2} + 2 \tan^{-1} (x_i) + \varepsilon,$ for each $ i \in 1, 2, \dots, 7,$ so that true $\beta = 1$, where $\varepsilon \sim \mathcal{N}(0, .1)$. The true $\beta_0$ is $\pi$. The relationship between the predictor and circular outcome is shown in figure \ref{SimpleDataset}.
-
+Due to the periodical nature of the outcome variable $\theta$, the conditional log-likelihood of some $\beta$ may have not be globally concave and may have more than one maximum. Consider a simple dataset, shown in Figure \ref{SimpleDataset}, with a single predictor $\boldsymbol{X} = \left\lbrace -3, -2, \dots, 2, 3 \right\rbrace $ that is standardized, and $\theta_i = \pi + 2 \tan^{-1} (x_i) + \varepsilon,$ for each $ i \in 1, 2, \dots, 7,$ with $\varepsilon \sim \mathcal{N}(0, .1)$. Then, true $\beta_0 = \pi$ and true $\beta = 1$.
 
 \begin{figure}
 \label{SimpleDataset}
@@ -189,7 +192,7 @@ Due to the periodical nature of the outcome variable $\theta$, the conditional l
 \label{SimpleDataset}
 \end{figure}
 
-Then, the shape of the log-likelihood can be displayed conditional on values for $\beta_0$. Figure \ref{SimpleDataBeta} shows three slices of the log-likelihood for different $\beta_0$. The shape of the conditional likelihood is irregular, and depends the data and the current value for $\beta_0$. Note that if the current $\beta_0$ is close to the true value, the maximum of the log-likelihood is close to the true value for $\beta$ as well. However, if $\beta_0$ is on the opposite end of the circle, the pattern reverses. In between, the likelihood may take many irregular forms.
+The shape of the log-likelihood of $\beta$, conditional on $\beta_0$, is shown in Figure \ref{SimpleDataBeta}. Even in this basic case, the shape of the conditional likelihood is irregular, and depends heavily on the current value of $\beta_0$. Note that if the current $\beta_0$ is close to the true value $\pi$, the maximum of the log-likelihood is close to 1, the true value for $\beta$. However, if $\beta_0$ is 0, the maximum of the log-likelihood is close to -1.
 
 \begin{figure}
 \label{SimpleDataBeta}
@@ -207,7 +210,7 @@ Then, the shape of the log-likelihood can be displayed conditional on values for
 \label{SimpleDataBeta}
 \end{figure}
 
-Another example dataset is given in Figure \ref{ZeroBData}. Here, true $\beta$ is zero, and the predictor $X$ consists of a sample with $n=30$ from the normal distribution that was standardized. Once again, true $\beta_0 = \pi$. The main message is that there are many different and unpredictable forms that $\beta$ can take, and it is not straightforward to sample from its conditionals.
+Another example dataset is given in Figure \ref{ZeroBData}, with $n = 30$, true $\beta = 0$, true $\beta_0 = \pi$ and standard normal errors. Here, we see that with $\beta_0 = 0$, the conditional log-likelihood has a minimum at the true $\beta$ at 0, with two asymptotes extending infinitely outwards. The lack of global concavity is not present in the posterior when using a normal prior (here, $N(0, 1)$, as seen in Figure \ref{ZeroBBetaNormalPrior}. Regardless, the irregular shape of the posterior still complicates inference.
 
 \begin{figure}
 \label{ZeroBData}
@@ -256,93 +259,129 @@ Another example dataset is given in Figure \ref{ZeroBData}. Here, true $\beta$ i
 \caption{Shape of the conditional posterior for three different values for $\beta_0$.}
 \end{figure}
 
-The shape of the posterior is somewhat more regular, as seen in Figure \ref{ZeroBBetaNormalPrior}.
-
-
-\section{Categorical predictors}
-
-\begin{knitrout}
-\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
-\begin{verbatim}
-## [1] 3.162
-\end{verbatim}
-\end{kframe}
-
-{\centering \includegraphics[width=\maxwidth]{figure/CatData-1} 
-
-}
-
-
-
-\end{knitrout}
-
-\begin{knitrout}
-\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
-
-{\centering \includegraphics[width=\maxwidth]{figure/CatBetaPlot-1} 
-
-}
-
-
-
-\end{knitrout}
+%' \begin{figure}
+%' \label{cat1}
+%' <<CatData>>=
+%'
+%' set.seed(212)
+%' n <- 100
+%' X  <- sample(0:1, n, replace=TRUE)
+%' bt <- 1
+%' th <- pi + atanLF(bt*X, 2) + rnorm(n, 0, .4)
+%' d <- data.frame(th=th, X=X)
+%' ggplot(aes(x=X, y=th), data=d) + geom_point() + ylab(expression(theta))  + ylim(0, 2*pi) + myTheme()
+%'
+%' meanDir(th[X==0])
+%' @
+%'
+%' <<CatBetaPlot>>=
+%' res <- 200
+%' b0cur <- 0
+%' xl <- 5 * c(-1, 1)
+%' ll1p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=0,
+%'                   kp=1, r=4, th=th, X=as.matrix(X)) +
+%'   myTheme() + labs(title=expression(paste(beta[0], " = 0")))
+%' ll2p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi/2,
+%'                   kp=1, r=2, th=th, X=as.matrix(X)) +
+%'   myTheme() + labs(title=expression(paste(beta[0], " = ", pi / 2)))
+%' ll3p1 <- plotbeta(normalPrior=FALSE, res=res, xl=xl, b0=pi,
+%'                   kp=1, r=2, th=th, X=as.matrix(X)) +
+%'   myTheme() + labs(title=expression(paste(beta[0], " = ", pi)))
+%' grid.arrange(ll3p1, ll2p1, ll1p1, ncol=3)
+%' @
+%' \caption{Shape of the conditional posterior for three different values for $\beta_0$.}
+%' \end{figure}
 
 
 \section{MCMC Sampling}
 
 This section will provide some details as to the proposed MCMC-algorithm, given in Algorithm \ref{basealg}. The algorithm separates the sampling of $(\beta_0, \kappa)$ and $\boldsymbol\beta$ by calculating $\boldsymbol\psi$ and using $\boldsymbol\psi$ in obtaining $(\beta_0, \kappa)$. Sampling of $\kappa$ employs an algorithm discussed by \citet{forbes2014fast} and will not be repeated here.
 
-A random walk mechanism is employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside of this algorithm. We might suggest using a default normal proposal for beta, because the expected area of the parameter space of $\beta$ will be known.
+Becayse of the irregular shape of the likelihood, several
+A random walk mechanism can be employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside of this algorithm. We might suggest using a default normal proposal for $\beta$, because the expected area of the parameter space of $\beta$ will be known.
+
+
+\subsection{Algorithm}
+% \begin{algorithm}[H]
+%
+% \texttt{For each $\beta_j$, select an appropriate bandwith $b_j.$}
+%
+% \texttt{Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.}
+%
+%  $m = n + c.$
+%
+%  \For{$i \leftarrow 2$ \KwTo $Q$}{
+%
+%   $\psi_i = \theta_i - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
+%
+%   Compute $\bar\psi$ and $R_{\psi}.$
+%
+%   Draw $\beta_0^{(i)} \sim \mathcal{VM}(\bar\psi, R_{\psi} \kappa).$
+%
+%   $h = - R_\psi  \cos\left(\beta_0 - \bar{\psi}\right).$
+%
+%   Sample $\kappa$ as in \citet{forbes2014fast}, using $(h, m).$
+%
+%   \For{$j \leftarrow 1$ \KwTo $K$}{
+%
+%     Draw $\tau_j \sim U(-b_j, b_j).$
+%
+% 	  $\beta_j^{(can)} = \beta_j^{(i-1)} + \tau_j.$
+%
+% 	  Compute
+% 	  \begin{align*}
+% 	  A_{\beta_j} = ~& \ln L \left( \beta_{k}^{(can)} \vert \beta_0^{(i)}, \boldsymbol\beta_{-(j)}^{(i-1)}, \kappa^{(i)}, \boldsymbol\theta, \boldsymbol{X} \right) + \ln \text{Prior}_{\beta_j}\left(\beta_{j}^{(can)}\right) \\
+% 	  - & \ln L \left( \beta_{j}^{(i-1)} \vert \beta_0^{(i)}, \boldsymbol\beta_{-(j)}^{(i-1)}, \kappa^{(i)}, \boldsymbol\theta, \boldsymbol{X} \right) - \ln \text{Prior}_{\beta_j}\left(\beta_{j}^{(i-1)}\right).
+% 	  \end{align*}
+%
+% 	  Draw $u_j \sim U(0,1).$
+%
+%   	  \eIf{$ A_{\beta_j} > \ln u_j$} {
+%   	    $\beta_j^{(i)} = \beta_j^{(can)}.$
+%   	  }{
+%   	    $\beta_j^{(i)} = \beta_j^{(i-1)}.$
+%   	  }
+%
+% }
+%
+%   }
+%  \caption{An algorithm for the given GLM approach}
+%  \label{basealg}
+% \end{algorithm}
+%
+
 
 \begin{algorithm}[H]
 
-\texttt{For each $\beta_j$, select an appropriate bandwith $b_j.$}
+% \texttt{For each $\beta_j$, select an appropriate bandwith $b_j.$}
 
-\texttt{Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.}
+ \texttt{Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.}
 
- $m = n + c.$
+  $m = n + c.$
 
  \For{$i \leftarrow 2$ \KwTo $Q$}{
 
-  $\psi_i = \theta_1 - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
+  $\psi_i = \theta_i - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
 
   Compute $\bar\psi$ and $R_{\psi}.$
 
   Draw $\beta_0^{(i)} \sim \mathcal{VM}(\bar\psi, R_{\psi} \kappa).$
 
-  $\eta = - R_\psi * \cos\left(\beta_0 - \bar{\psi}\right).$
+  $h = - R_\psi  \cos\left(\beta_0 - \bar{\psi}\right).$
 
-  Sample $\kappa$ as in \citet{forbes2014fast}, using $(\eta, m).$
+  Sample $\kappa$ as in \citet{forbes2014fast}, using $(h, m).$
 
-  \For{$j \leftarrow 1$ \KwTo $K$}{
-
-    Draw $\tau_j \sim U(-b_j, b_j).$
-
-	  $\beta_j^{(can)} = \beta_j^{(i-1)} + \tau_j.$
-
-	  Compute
-	  \begin{align*}
-	  A_{\beta_j} = ~& \ln L \left( \beta_{k}^{(can)} \vert \beta_0^{(i)}, \boldsymbol\beta_{-(j)}^{(i-1)}, \kappa^{(i-1)}, \boldsymbol\theta, \boldsymbol{X} \right) + \ln \text{Prior}_{\beta_j}\left(\beta_{j}^{(can)}\right) \\
-	  - & \ln L \left( \beta_{j}^{(i-1)} \vert \beta_0^{(i)}, \boldsymbol\beta_{-(j)}^{(i-1)}, \kappa^{(i-1)}, \boldsymbol\theta, \boldsymbol{X} \right) - \ln \text{Prior}_{\beta_j}\left(\beta_{j}^{(i-1)}\right).
-	  \end{align*}
-
-	  Draw $u_j \sim U(0,1).$
-
-  	  \eIf{$ A_{\beta_j} > \ln u_j$} {
-  	    $\beta_j^{(i)} = \beta_j^{(can)}.$
-  	  }{
-  	    $\beta_j^{(i)} = \beta_j^{(i-1)}.$
-  	  }
-
-}
+  Draw $\boldsymbol\beta$.
 
   }
- \caption{An algorithm for the given GLM approach}
+ \caption{An outline of the algorithm for the given GLM approach}
  \label{basealg}
 \end{algorithm}
 
 
-
+\begin{itemize}
+\item
+\end{itemize}
 
 %
 % \section{The model}
@@ -366,7 +405,65 @@ A random walk mechanism is employed for $\boldsymbol\beta$. This requires settin
 % \item Solutions
 % \end{itemize}
 
+
+\subsection{Limitations}
+
+\begin{itemize}
+\item The current method does not work well when the sum of coefficients becomes too large.
+\item
+\end{itemize}
+
 \section{Simulation study}
+
+\subsection{Setup}
+
+\begin{itemize}
+\item Show that the sampler converges usually with reasonable models
+\item Show the extent to which the sampler still works, and when it doesn't in a limited number of edge cases.
+\end{itemize}
+
+\subsubsection{One continuous, one categorical predictor}
+
+\subsubsection{Two continuous, two categorical predictors}
+
+\subsection{Results}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{verbatim}
+##  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+## Simulation study results with number of simulations: . Iterations per dataset Q: .
+## Range of the link function is r*pi, here r = . Using a  prior for Beta.
+## Reparametrization was performed.
+##  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+## 
+## (1) Betadesign: l = 0.05
+##     n kp b0_meandir b0_in_CCI kp_mean kp_mode kp_in_HDI bt_1_mean
+## 1  20  1        1.6      1.00    0.73    0.40      0.97    -0.041
+## 2  50  1        1.6      0.99    0.76    0.71      0.84    -0.010
+## 3 100  1        1.6      0.98    0.93    0.93      0.91     0.019
+## 4  20  4        1.6      0.96    4.33    3.90      0.94     0.029
+## 5  50  4        1.6      0.95    4.24    4.08      0.96     0.049
+## 6 100  4        1.6      0.95    4.11    4.03      0.97     0.052
+## 7  20 32        1.6      0.94   39.46   35.57      0.94     0.049
+## 8  50 32        1.6      0.95   34.76   33.46      0.96     0.050
+## 9 100 32        1.6      0.94   33.06   32.43      0.95     0.050
+##   bt_1_in_CCI
+## 1        1.00
+## 2        1.00
+## 3        1.00
+## 4        0.98
+## 5        0.95
+## 6        0.93
+## 7        0.89
+## 8        0.88
+## 9        0.87
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+
 
 \begin{itemize}
 \item Cases
@@ -376,11 +473,35 @@ A random walk mechanism is employed for $\boldsymbol\beta$. This requires settin
 
 \section{Application}
 
+To show how to apply this methodology in practice, we will here show how a dataset could be analyzed.
+
+\subsection{Problem}
+
 \begin{itemize}
 \item 1-3 example datasets, analyzed with CCI's etc.
-\item At least one highly dimensional dataset that would fail under Gill \& Hangartner.
 \end{itemize}
 
+\subsection{Estimation}
+
+\begin{itemize}
+\item Show how MCMC sampler can be applied
+\item Explain the output of the sampler clearly
+\item Draw clear-cut conclusions from this
+\end{itemize}
+
+\subsection{Model fit}
+
+\begin{itemize}
+\item Show how IC's and ppc can be applied
+\item Draw clear-cut conclusions from this
+\end{itemize}
+
+\subsection{Model comparison}
+
+\begin{itemize}
+\item Show how BF's are used
+\item Draw clear-cut conclusions from this
+\end{itemize}
 
 \section{Discussion}
 

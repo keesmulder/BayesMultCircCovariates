@@ -3,7 +3,6 @@ source('Simulation/simulationStudyCircGLM.R')
 source('SimulationAnalysis/generateBetaShapePlot.R')
 source('SimulationAnalysis/compareSimResults.R')
 
-dir("Simulation/Results")
 
 load(paste0("Simulation/Results/[simStudCircGLM][nsim1000][Q10000][burnin100]",
             "[r2][bt_prior1][seed389238][n12,100][kp0.5,30]",

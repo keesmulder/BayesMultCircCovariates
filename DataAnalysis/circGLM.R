@@ -102,15 +102,36 @@ fixResultNames <- function(nms){
 
 
 
-circGLM <- function(th, X, conj_prior = rep(0, 3), 
-                    bt_prior = matrix(0:1, nrow=ncol(X), ncol=2, byrow=TRUE), 
-                    starting_values = rep(1, ncol(X)+2),
-                    burnin = 1000, lag = 1, bwb = .05, 
-                    kappaModeEstBandwith = .1, CIsize = .95,
-                    Q=10000, r=2, returnPostSample=FALSE, bt_prior_type=1,
-                    output = "list", reparametrize = FALSE, 
-                    debug=FALSE, loopDebug=FALSE) {
+circGLM <- function(th, X,
+                    conj_prior = rep(0, 3),
+                    bt_prior = matrix(0:1, nrow=ncol(X), ncol=2, byrow=TRUE),
+                    starting_values = c(0, 1, rep(0, ncol(X))),
+                    burnin = 1000,
+                    lag = 1,
+                    bwb = rep(.05, ncol(X)),
+                    kappaModeEstBandwith = .1,
+                    CIsize = .95,
+                    Q = 10000,
+                    r = 2,
+                    returnPostSample = FALSE,
+                    bt_prior_type=1,
+                    output = "list",
+                    reparametrize = FALSE,
+                    debug = FALSE,
+                    loopDebug = FALSE) {
 
+  # Check if the inputs are matrices.
+  if (!is.matrix(th)) th <- as.matrix(th)
+  if (!is.matrix(X))  X <- as.matrix(X)
+
+  # Check if theta is in radians
+  if (any(th > 7)) {
+    cat("Setting theta to radians instead of degrees.")
+    th <- th * pi / 180
+  }
+
+  # Standardize predictors
+  X <- scale(X)
 
   res <- circGLMC(th=th, X=X,
                   conj_prior=conj_prior, bt_prior=bt_prior,
