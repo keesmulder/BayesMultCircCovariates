@@ -20,16 +20,42 @@ using namespace Rcpp;
 
 
 // [[Rcpp::export]]
-vec tes() {
-  rowvec rv = rowvec(2);
-  rv(0)  = 3;
-  rv(1)  = 2;
-
-  colvec cv = colvec(2);
-  cv(0)  = 30;
-  cv(1)  = 23;
-
-  return rv + cv;
+mat tes() {
+  mat A = randu<mat>(5,10);
+  return(A);
 }
 
+// [[Rcpp::export]]
+mat tes2() {
+  mat A = zeros<mat>(20, 0);
+  mat B = zeros<mat>(0, 20);
+
+  cout << A << endl;
+  cout << B << endl;
+
+  return(A * B);
+}
+
+// [[Rcpp::export]]
+mat tes3() {
+  mat A = zeros<mat>(20, 0);
+  mat B = zeros<mat>(0, 20);
+
+  cout << A << endl;
+  cout << B << endl;
+
+  return((double) B * A);
+}
+//
+// // [[Rcpp::export]]
+// double tes4() {
+//   mat A = zeros<mat>(20, 0);
+//   mat B = zeros<mat>(0, 20);
+//
+//   cout << A << endl;
+//   cout << B << endl;
+//
+//   return(as_scalar(B * A));
+// }
+//
 

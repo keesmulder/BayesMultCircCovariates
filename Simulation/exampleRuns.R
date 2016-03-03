@@ -5,15 +5,13 @@ library(dplyr)
 
 ############ RUN ONE DATASET
 set.seed(2)
-ncon <- 0
+ncon <- 1
 ncat <- 1
 nb <- ncon + ncat
-n <- 100
-d <- generateCircGLMData(n = n, residkappa = 30,
+n <- 200
+d <- generateCircGLMData(n = n, residkappa = 10,
                          nconpred = ncon, ncatpred = ncat,
-                         truebeta=seq(0.8, 1, length.out = nb))
-
-# plot(d[,2], d[,1])
+                         truebeta=rep(.2, ncon), truedelta=rep(.2, ncat))
 
 mcmcpar <- list(conj_prior      = rep(0, 3),
                 burnin          = 0,
@@ -22,22 +20,41 @@ mcmcpar <- list(conj_prior      = rep(0, 3),
                 Q               = 100000,
                 r               = 2,
                 bt_prior_type   = 0,
-                starting_values = c(pi/2, 1, rep(-10, nb)),
+                starting_values = c(pi/2, 1),
                 bt_prior        = matrix(c(0,1), ncol=2, nrow=nb, byrow=TRUE),
                 bwb             = rep(.05, nb),
-                reparametrize   = TRUE,
+                reparametrize   = FALSE,
                 kappaModeEstBandwith = .05)
 
-functionpar <- list(th     = d[,1,  drop=FALSE],
-                    X      = d[,-1, drop=FALSE],
+functionpar <- list(th     = d[,  1, drop=FALSE],
+                    X      = d[, -1, drop=FALSE],
+                    debug  = TRUE,
+                    loopDebug  = TRUE,
                     output = "list",
                     returnPostSample = TRUE)
+
 
 set.seed(2)
 tpar <- c(functionpar,mcmcpar)
 res1 <- do.call(circGLM, c(functionpar, mcmcpar))
 
 
+plot(res1)
+
+par(mfrow=c(3,2))
+predict.plot.circGLM(res1)
+hist((res1$b0_chain[-c(1:5000)]), breaks = 100); abline(v = pi/2, col="darkolivegreen", lwd = 5)
+hist((res1$dt_chain[-c(1:5000), 1] + res1$b0_chain), breaks = 100); abline(v = .2 + pi/2, col="darkolivegreen", lwd = 5)
+hist((res1$dt_chain[-c(1:5000), 1]), breaks = 100); abline(v = .2 + pi/2, col="darkolivegreen", lwd = 5)
+hist((res1$dt_chain[-c(1:5000), 2] + res1$b0_chain), breaks = 100); abline(v = .5 + pi/2, col="darkolivegreen", lwd = 5)
+hist((res1$bt_chain[-c(1:5000), 1]), breaks = 100); abline(v = .3, col="darkolivegreen", lwd = 5)
+hist((res1$bt_chain[-c(1:5000), 2]), breaks = 100); abline(v = .2, col="darkolivegreen", lwd = 5)
+
+hist(res1$dt_chain[, 1], breaks=100, xlim = c(0, 2))
+
+res1$kp_mode
+plot(density(res1$dt_chain[, 1]), xlim = c(0, 2))
+curve(dvonmises(x, .3, 9.5), add=TRUE)
 
 # RUN 2
 mcmcpar2     <- mcmcpar

@@ -7,15 +7,14 @@
 #
 #
 
-TODO
-- Try _ instead of named
-- Starting value for Beta_0 may be removed.
+ TODO
+ Check if quantiles are obtained properly.
 
 #
 # This work was supported by a Vidi grant awarded to I. Klugkist from the
 # Dutch Organization for Scientific research (NWO 452-12-010).
 # ----------------------------------------------------------
-*/
+ */
 
 
 
@@ -36,9 +35,13 @@ using namespace arma;
 
 const double pi = boost::math::constants::pi<double>();
 
+// [[Rcpp::export]]
+double cvariance(vec x) {
+  return var(x);
+}
 
-// TODO:
-// Check if quantiles are obtained properly.
+
+
 
 // [[Rcpp::export]]
 vec atanLF(vec x, double r) {
@@ -71,19 +74,19 @@ double invAtanLFdouble(double x, double r) {
 // [[Rcpp::export]]
 NumericVector rvmc(int n, double mu, double kp) {
   /* FUNCTION rvmc -------------------------------------------
-  Generate random variates from the von Mises distribution.
+   Generate random variates from the von Mises distribution.
 
-  n:      The number of random variates required.
-  mu:     The required mean direction, mu.
-  kp:     The required concentration, kappa.
+   n:      The number of random variates required.
+   mu:     The required mean direction, mu.
+   kp:     The required concentration, kappa.
 
-  Returns: A vector of length n containing VM random variates.
-  ------------------------------------------------------------ */
+   Returns: A vector of length n containing VM random variates.
+   ------------------------------------------------------------ */
 
   // If kappa is very small, return a circular uniform draw, as otherwise the
   // algorithm will fail.
   if (kp < .0000001) {
-      return runif(n, 0, pi);
+    return runif(n, 0, 2*pi);
   }
 
   NumericVector th(n);
@@ -139,14 +142,14 @@ double Wapprox (double t) {
 // [[Rcpp::export]]
 vec sampleKappa(double etag, int eta) {
   // Function to sample values for kappa in a von Mises distribution. Etag should
-  // be R * cos(mu - theta_bar). eta is the posterior n, which is n + c where c is
+  // be - R * cos(mu - theta_bar). eta is the posterior n, which is n + c where c is
   // the number of observations contained in the conjugate prior. For
   // uninformative, c = 0 and eta = n.
 
   // beta_0 in Forbes & Mardia (2014) is renamed g here to avoid confusion with
   // the intercept in the GLM model.
   double g, kl, ku, c1, c2, c3, c4, c5, c6, beta, eps,
-         alph, x, u, v1, v2, v;
+  alph, x, u, v1, v2, v;
 
   long double k0, i0, r, kp_can;
 
@@ -201,7 +204,7 @@ vec sampleKappa(double etag, int eta) {
       // Break the loop if these tests are passed.
       if (kp_can < 0.258 || v < c6) {
         if ( v < c6 - log(1 + 1 / 2 * kp_can) ||
-        v < -log(boost::math::cyl_bessel_i(0, kp_can))) {
+             v < -log(boost::math::cyl_bessel_i(0, kp_can))) {
           cont = FALSE;
         }
       }
@@ -257,7 +260,7 @@ vec quantile(vec x, vec q) {
 }
 
 // [[Rcpp::export]]
-vec circQuantile(arma:: vec th, vec q) {
+vec circQuantile(arma::vec th, vec q) {
   // Compute a circular quantile.
 
   double rotation = computeMeanDirection(th) - pi;
@@ -343,6 +346,7 @@ vec computeHDI(vec x, double cip) {
 }
 
 
+
 // [[Rcpp::export]]
 double rhsll(double b0, double kp, vec bt, vec dt,
              vec th, mat X, mat D, double r) {
@@ -351,17 +355,20 @@ double rhsll(double b0, double kp, vec bt, vec dt,
   // a constant (that is, everything but kappa). Returns the right-hand side of
   // the log-likelihood function.
 
-  mat X_bybt = X;
-  mat D_bydt = D;
+  //   cout << endl << "D dim: "  << D.n_rows  << ", " << D.n_cols  << endl;
+  //   cout << endl << "dt dim: " << dt.n_rows << ", " << dt.n_cols << endl;
+  //   cout << endl << "X dim: "  << X.n_rows  << ", " << X.n_cols  << endl;
+  //   cout << endl << "bt dim: " << bt.n_rows << ", " << bt.n_cols << endl;
+  //   cout << endl << "D*dt: " << endl << (D * dt) << endl;
+  //   cout << endl << "X*bt: " << endl << (X * bt) << endl;
+  //   cout << endl << "atanLF(X * bt, r): " << endl << atanLF(X * bt, r) << endl;
+  //   cout << endl << "b0: " << endl << b0 << endl;
+  //   cout << endl << "th: " << endl << th << endl;
 
-  X_bybt.each_row() %= bt.t();
-  D_bydt.each_row() %= dt.t();
-
-  double rhs = arma::sum(cos(th - b0 - arma::sum(D_bydt, 1)
-                                - atanLF(arma::sum(X_bybt, 1), r)));
-
-  return rhs * kp;
+  return kp * arma::sum(cos(th - b0 - (D * dt) - atanLF(X * bt, r)));
 }
+
+
 
 
 // [[Rcpp::export]]
@@ -372,7 +379,7 @@ double ll(double b0, double kp, vec bt, vec dt,
   int n = th.size();
 
   // The left-hand side of the likelihood function.
-  double lhs = - n * log(boost::math::cyl_bessel_i(0, kp));
+  double lhs = - n * log(2 * pi) - n * log(boost::math::cyl_bessel_i(0, kp));
 
   // The right-hand side of the likelihood function.
   double rhs = rhsll(b0, kp, bt, dt, th, X, D, r);
@@ -387,18 +394,8 @@ vec logProbNormal (vec x, vec mu, vec sd)
   // Compute the log of the probability of the normal distribution for a vector
   // of x's, means and sd's.
   return -log(sd) - log (sqrt(2*pi)) -
-          ( pow(x - mu, 2) / (2 * pow(sd, 2) ) );
+    ( pow(x - mu, 2) / (2 * pow(sd, 2) ) );
 }
-
-//// [[Rcpp::export]]
-//double btest (double x)
-//{
-//  // Compute the log of the probability of the normal distribution for a vector
-//  // of x's, means and sd's.
-//  return besselI(10, 0, true);
-//}
-
-
 
 
 // bwb: Bandwith for the proposal for beta
@@ -412,6 +409,9 @@ vec logProbNormal (vec x, vec mu, vec sd)
 // residual concentration, kappa. Reasonable values are roughly between .005 and
 // .2, although lower values may be reasonable if Q is large.
 // CIsize: What % credible intervals should be returned?
+// debug, loopDebug: debug is basic progress debug, loopDebug also prints where
+// the sampler is in the first run of the main MCMC-loop.
+//
 // [[Rcpp::export]]
 Rcpp::List circGLMC(vec th, mat X, mat D,
                     vec conj_prior, mat bt_prior,
@@ -419,7 +419,8 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
                     vec bwb, double kappaModeEstBandwith, double CIsize,
                     int Q, double r, bool returnPostSample,
                     int bt_prior_type, bool reparametrize,
-                    bool debug, bool loopDebug) {
+                    bool debug, bool loopDebug,
+                    bool groupMeanComparisons) {
 
 
   if (debug) std::cout << "--- Start --- " << std::endl << " - Initialize: a, ";
@@ -433,33 +434,10 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   // Sample size n and number of continuous predictors K and categorical
   // predictors J.
   int n = th.n_elem;
-  int K = X.n_cols;
-  int J = D.n_cols;
 
-  int nkpcan = 0; // Number of candidates for kappa
-  vec nbtacc = zeros<vec>(K); // Vector with # accepted beta's.
-  vec ndtacc = zeros<vec>(J); // Vector with # accepted beta's.
-
-  if (debug) std::cout << "b, ";
-
-  vec b0_chain = zeros<vec>(Q);
-  vec kp_chain = zeros<vec>(Q);
-  mat bt_chain = zeros<mat>(Q, K);
-  mat dt_chain = zeros<mat>(Q, J);
-  mat zt_chain = zeros<mat>(Q, K);
-
-  if (debug) std::cout << "c, ";
-
-  double b0_cur       = starting_values(0);
-  double kp_cur       = starting_values(1);
-  vec bt_cur          = starting_values(arma::span(2, K + 1));
-  vec dt_cur          = zeros<vec>(J);
-  double bt_cur_prior = 0;
-  double bt_can_prior = 0;
-  vec zt_cur = atanLF(bt_cur, 1/piOver2);
-
-  if (debug) std::cout << "d, ";
-
+  // Initialize Beta_0, conjugate prior
+  vec    b0_chain = zeros<vec>(Q);
+  double b0_cur   = starting_values(0);
   double b0_prior = conj_prior(0);
   double R_prior  = conj_prior(1);
   int    n_prior  = conj_prior(2);
@@ -467,31 +445,66 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   double S_prior  = R_prior * sin(b0_prior);
   int    n_post   = n + n_prior;
 
-  if (debug) std::cout << "e, ";
-
-  // To hold the results of the sampleKappa-function
-  vec sk_res = zeros<vec>(2);
-
-
-  // Sum of beta*x of each predictor, before link function.
-  mat X_bybt = zeros<mat>(n, K);
-  mat D_bydt = zeros<mat>(n, K);
-
   // Data after subtraction of prediction.
   vec psi    = zeros<vec>(n);
 
+  if (debug) std::cout << "b, ";
+
+  // Initialize Kappa
+  int nkpcan    = 0; // Number of candidates for kappa
+  vec kp_chain  = zeros<vec>(Q);
+  double kp_cur = starting_values(1);
+  vec sk_res    = zeros<vec>(2); // Results of sampleKappa function
+
+  if (debug) std::cout << "c, ";
+
+  // Initialize Beta
+  int K         = X.n_cols;
+  // bool useBt    = K > 0;
+
+  // if (useBt) {
+  vec bt_cur    = zeros<vec>(K);
+  vec zt_cur    = atanLF(bt_cur, 1/piOver2);
+  vec nbtacc    = zeros<vec>(K); // Vector with # accepted beta's.
+  mat bt_chain  = zeros<mat>(Q, K);
+  mat zt_chain  = zeros<mat>(Q, K);
+
+  // Sum of beta*x of each predictor, before link function.
+  mat X_bybt = zeros<mat>(n, K);
+
   // Candidate for vector of predictors.
   vec bt_can = zeros<vec>(K);
-  vec dt_can = zeros<vec>(J);
   vec zt_can = zeros<vec>(K);
+  // }
 
+  double bt_cur_prior = 0;
+  double bt_can_prior = 0;
+
+  if (debug) std::cout << "d, ";
+
+  // Initialize Delta
+  int J         = D.n_cols;
+  // bool useDt    = J > 0;
+
+  vec dt_cur    = zeros<vec>(J);
+  vec dt_can    = zeros<vec>(J);
+  vec ndtacc    = zeros<vec>(J); // Vector with # accepted delta's.
+  mat dt_chain  = zeros<mat>(Q, J);
+  mat D_bydt    = zeros<mat>(n, J);
+
+  if (debug) std::cout << "e, ";
   if (debug) std::cout << "f, ";
+
+  // Initialize matrix with the log-likelihood of each data point, given the
+  // current parameters.
+  mat ll_each_th_curpars = zeros<mat>(Q, n);
 
   // Compute number of iterations, taking lag and burn-in into account.
   int Qbylag = Q * lag + burnin;
   int isav = 0; // Keeps track of where to save those values not thinned out.
 
-  if (debug) std::cout << "g - End Initialize. -" << std::endl << " - Loop: ";
+  if (debug) std::cout << "g - End Initialize. -" << std::endl;
+  if (debug) std::cout << "- J=" << J << ", K=" << K << "- Loop:" << std::endl;
 
   for (int i = 0; i < Qbylag; i++)
   {
@@ -504,15 +517,15 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
     ////////////
 
     // Obtain an n*K matrix with beta_k * x_{i, k} in each cell.
-    X_bybt  = X;
-    X_bybt.each_row() %= bt_cur.t();
-    D_bydt  = D;
-    D_bydt.each_row() %= dt_cur.t();
+    X_bybt  = X * bt_cur;
+    // if (useBt) X_bybt.each_row() %= bt_cur.t();
+    D_bydt  = D * dt_cur;
+    // if (useDt) D_bydt.each_row() %= dt_cur.t();
 
     if (loopDebug & (i==0)) std::cout << "b, ";
 
     // Obtain psi and its current properties.
-    psi     = th + arma::sum(D_bydt, 1) - atanLF(arma::sum(X_bybt, 1), r);
+    psi     = th - arma::sum(D_bydt, 1) - atanLF(arma::sum(X_bybt, 1), r);
     C_psi   = as_scalar(sum(cos(psi))) + C_prior;
     S_psi   = as_scalar(sum(sin(psi))) + S_prior;
     R_psi   = sqrt(pow(C_psi, 2) + pow(S_psi, 2));
@@ -554,18 +567,23 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
       if (loopDebug & (i==0)) std::cout << "dt_" << j+1 << "{1";
 
       // The proposal for each delta is a von Mises distribution with mean
-      // dt_cur[j] with and as kappa the residual kappa. This is fairly
-      // arbitrary, but reasonable. This might become problematic if the deltas
-      // become very large compared to the variance.
-      dt_can = rvmc(1, dt_cur[j], kp_cur)[0];
+      // dt_cur[j] with and as R_psi * kappa the residual kappa. This is fairly
+      // arbitrary, but reasonable. kp_cur might be too wide (which will cause
+      // low acceptance), 0 will probably work but the acceptance rate will be
+      // very low. This is likely slightly too narrow, but good in most cases.
+      dt_can(j) = rvmc(1, dt_cur[j], R_psi * kp_cur)[0];
 
       dt_lograt = rhsll(b0_cur, kp_cur, bt_cur, dt_can, th, X, D, r) -
-                  rhsll(b0_cur, kp_cur, bt_cur, dt_cur, th, X, D, r);
+        rhsll(b0_cur, kp_cur, bt_cur, dt_cur, th, X, D, r);
+
+      if (loopDebug & (i==0)) std::cout << ", 3";
 
       // Accept the candidate according to the MH-ratio.
       if (dt_lograt > log(runif(1, 0, 1)[0]))
       {
-        dt_cur(j) = dt_can(j);
+
+        // Set delta if chosen, but ensure that the new delta is in [-pi, pi).
+        dt_cur(j) = fmod(dt_can(j) + pi, 2.0*pi) - pi;
 
         if (i >= burnin) ndtacc(j)++;
       }
@@ -574,7 +592,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
         dt_can(j) = dt_cur(j);
       }
 
-      if (loopDebug & (i==0)) std::cout << "dt_" << j+1 << ", 2}, ";
+      if (loopDebug & (i==0)) std::cout << ", 4}, ";
 
     }
 
@@ -626,7 +644,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
       if (loopDebug & (i==0)) std::cout << "4";
 
       bt_lograt = rhsll(b0_cur, kp_cur, bt_can, dt_cur, th, X, D, r) + bt_can_prior -
-                  rhsll(b0_cur, kp_cur, bt_cur, dt_cur, th, X, D, r) - bt_cur_prior;
+        rhsll(b0_cur, kp_cur, bt_cur, dt_cur, th, X, D, r) - bt_cur_prior;
 
       // Accept the candidate according to the MH-ratio.
       if (bt_lograt > log(runif(1, 0, 1)[0]))
@@ -659,6 +677,15 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
       bt_chain.row(isav) = bt_cur.t();
       dt_chain.row(isav) = dt_cur.t();
       zt_chain.row(isav) = zt_cur.t();
+
+      for (int lli = 0; lli < n; lli++) {
+
+        ll_each_th_curpars(isav, lli) = ll(b0_cur, kp_cur, bt_cur, dt_cur,
+                           (vec) th.subvec(lli, lli),
+                           (mat) X.row(lli),
+                           (mat) D.row(lli),
+                           r);
+      }
 
       isav++;
     }
@@ -704,7 +731,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
 
   // Get a mean direction for delta.
   rowvec dt_meandir = zeros<rowvec>(J);
-  mat dt_CCI  = mat(2, K);
+  mat dt_CCI  = mat(2, J);
 
   // Obtain the mean direction and
   for (int j = 0; j < J; j++)
@@ -751,8 +778,8 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
 
   for (int predi = 0; predi < K; predi++)
   {
-     bt_CCI.col(predi) = quantile(bt_chain.col(predi), qbounds);
-     zt_CCI.col(predi) = quantile(zt_chain.col(predi), qbounds);
+    bt_CCI.col(predi) = quantile(bt_chain.col(predi), qbounds);
+    zt_CCI.col(predi) = quantile(zt_chain.col(predi), qbounds);
   }
 
   if (debug) std::cout << "h, ";
@@ -765,6 +792,143 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
 
   if (debug) std::cout << "i, ";
 
+  // Obtain predicted values for all data points.
+  vec th_hat = (D * dt_meandir.t()) + atanLF(X * bt_mean.t(), r) + b0_meandir;
+
+  if (debug) std::cout << "j, ";
+
+
+
+
+
+  //// INFORMATION CRITERIA
+
+  if (debug) std::cout << "(IC 1, ";
+
+  // Log-likelihood of the data given the posterior estimates.
+  double ll_th_estpars = ll(b0_meandir, kp_mode, bt_mean.t(), dt_meandir.t(),
+                            th, X, D, r);
+
+  // Log-likelihood of the data for each current posterior value in the chain.
+  vec ll_th_curpars = sum(ll_each_th_curpars, 1);
+
+  if (debug) std::cout << "IC 2, ";
+
+  double lppd = accu(log(sum(exp(ll_each_th_curpars), 0))) - n * log(Q);
+
+  if (debug) std::cout << "IC 3, ";
+
+  // Calculate the amount of parameters.
+  int n_par = 2 + J + K;
+
+  // Obtain the Bayes-AIC, where the Bayesian estimates of the parameters are
+  // used instead (in ll_data).
+  double AIC_Bayes = - 2 * ll_th_estpars + 2 * n_par;
+
+  // Obtain the two versions of DIC as in Gelman's BDA, 3rd ed.
+  double p_DIC     = 2 * (ll_th_estpars - mean(ll_th_curpars));
+  double p_DIC_alt = 2 * var(ll_th_curpars);
+
+  double DIC     = - 2 * ll_th_estpars + 2 * p_DIC;
+  double DIC_alt = - 2 * ll_th_estpars + 2 * p_DIC_alt;
+
+  if (debug) std::cout << "IC 4, ";
+
+  // Obtain the two versions of WAIC as in Gelman's BDA, 3rd ed.
+  rowvec WAIC_logofmean = log(mean(exp(ll_each_th_curpars), 0));
+  rowvec WAIC_meanoflog = mean(ll_each_th_curpars, 0);
+  double p_WAIC1     = 2 * sum(WAIC_logofmean - WAIC_meanoflog);
+
+  double p_WAIC2     = accu(var(ll_each_th_curpars, 0, 0));
+
+  double WAIC1      = - 2 * (lppd - p_WAIC1);
+  double WAIC2      = - 2 * (lppd - p_WAIC2);
+
+  if (debug) std::cout << "IC 5)";
+
+
+
+
+
+
+  //// Automatic Bayes Factors for delta's
+  if (debug) std::cout << endl << "BFs:";
+
+  vec dtBFs = zeros<vec>(J);
+  vec prop_pos_dts = zeros<vec>(J);
+
+  for (int j = 0; j < J; j++) {
+    prop_pos_dts(j) = ((double) sum(dt_chain.col(j) > 0)) / Q;
+
+    if (debug) std::cout << "(" << prop_pos_dts(j) << ", ";
+
+    // This is the fit/complexity Bayes Factor for delta_k > 0 vs. delta_k < 0.
+    dtBFs(j) = prop_pos_dts(j)/(1 - prop_pos_dts(j));
+
+    if (debug) std::cout <<  dtBFs(j) << "), ";
+  }
+
+
+  //// Automatic Bayes Factors for beta's
+  vec btBFs = zeros<vec>(K);
+  vec prop_pos_bts = zeros<vec>(K);
+
+  for (int k = 0; k < K; k++) {
+    prop_pos_bts(k) = ((double) sum(bt_chain.col(k) > 0)) / Q;
+
+    // This is the fit/complexity Bayes Factor for beta_k > 0 vs. beta_k < 0.
+    btBFs(k) = prop_pos_bts(k)/(1 - prop_pos_bts(k));
+
+    if (debug) std::cout <<  dtBFs(k) << "), ";
+  }
+
+
+
+  //// Automatic Bayes Factors for mean comparisons
+
+  int nmu = J + 1;
+
+  // Number of comparisons
+  int n_comp = (nmu*nmu - nmu)/2;
+
+  vec muBFs = zeros<vec>(n_comp);
+  vec prop_lgr = zeros<vec>(n_comp);
+
+  // Create chains containing the means of each group in each iteration.
+  mat mu_chain = zeros<mat>(Q, nmu);
+  mu_chain.col(0) = b0_chain;
+  for (int mui = 1; mui < nmu; mui++) {
+    mu_chain.col(mui) = b0_chain + dt_chain.col(mui-1);
+  }
+
+  if (groupMeanComparisons & (J > 0)) {
+
+
+    int comp_i = 0;
+
+    for (int mi_first = 0; mi_first < nmu - 1; mi_first++) {
+      for (int mi_last = mi_first + 1; mi_last < nmu; mi_last++) {
+
+
+        if (debug) {std::cout<<endl<<"Comp:"<<mi_first<<","<<mi_last;}
+
+        prop_lgr(comp_i) = ((double) sum(mu_chain.col(mi_first) >
+                                           mu_chain.col(mi_last))) / Q;
+
+        muBFs(comp_i) = prop_lgr(comp_i)/(1 - prop_lgr(comp_i));
+
+        comp_i++;
+      }
+    }
+  }
+
+
+
+
+
+  //// OUTPUT LIST
+
+  // Create a list of outputs.
   Rcpp::List out;
 
   out["b0_meandir"] = b0_meandir;
@@ -787,6 +951,34 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   out["zt_mdir"]    = zt_meandir;
   out["zt_CCI"]     = zt_CCI;
 
+  out["th_hat"]     = th_hat;
+
+  out["ll_th_estpars"] = ll_th_estpars;
+  out["ll_th_curpars"] = ll_th_curpars;
+
+  out["lppd"]       = lppd;
+  out["n_par"]      = n_par;
+
+
+  if (returnPostSample) { out["ll_each_th_curpars"] = ll_each_th_curpars; }
+
+  out["AIC_Bayes"]        = AIC_Bayes;
+
+  out["p_DIC"]      = p_DIC;
+  out["p_DIC_alt"]  = p_DIC_alt;
+  out["DIC"]        = DIC;
+  out["DIC_alt"]    = DIC_alt;
+
+  out["p_WAIC1"]    = p_WAIC1;
+  out["p_WAIC2"]    = p_WAIC2;
+  out["WAIC1"]      = WAIC1;
+  out["WAIC2"]      = WAIC2;
+
+  // out["prop_pos_dts"] = prop_pos_dts;
+  out["DeltaBayesFactors"] = dtBFs;
+  out["BetaBayesFactors"]  = btBFs;
+  if (groupMeanComparisons) {out["MuBayesFactors"] = muBFs;}
+
   out["SavedIts"]   = Rcpp::wrap(Q);
   out["TotalIts"]   = Rcpp::wrap(Qbylag);
 
@@ -794,7 +986,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   clock_t end = clock();
   out["TimeTaken"] = double(end - begin) / CLOCKS_PER_SEC;
 
-  if (debug) std::cout << "j. ";
+  if (debug) std::cout << ", h. ";
 
   if (returnPostSample)
   {
@@ -803,6 +995,10 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
     out["bt_chain"] = bt_chain;
     out["dt_chain"] = dt_chain;
     out["zt_chain"] = zt_chain;
+
+    out["ll_each_th_curpars"] = ll_each_th_curpars;
+
+    if (groupMeanComparisons) {out["mu_chain"] = mu_chain;}
   }
 
   if (debug) std::cout << "End Gather -" << std::endl << std::endl;

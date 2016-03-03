@@ -69,21 +69,27 @@ plot.circGLM <- function(m, tasp=1, coef="Beta") {
       apply(m$dt_chain, 2, plot.ts,
             xlab="Iteration", ylab="Delta", main="Delta chain")
 
-    # Otherwise plot only 5000 values, otherwise the plotting will be too slow.
+      # Otherwise plot only 5000 values, otherwise the plotting will be too slow.
     } else {
       idx <- round(seq(1, m$SavedIts, m$SavedIts/5000))
       plot.ts(x=idx, y=m$b0_chain[idx], xy.lines=TRUE,
               xlab="Iteration", ylab="Beta_0", pch=NA, main="Beta_0 chain")
       plot.ts(x=idx, y=m$kp_chain[idx], xy.lines=TRUE,
               xlab="Iteration", ylab="Kappa", pch=NA, main="Kappa chain")
-      apply(coef_chain[idx, , drop=FALSE], 2,
-            function(cfchn) plot.ts(x=idx, y=cfchn, xy.lines=TRUE,
+
+      if (ncol(coef_chain) > 0) {
+        apply(coef_chain[idx, , drop=FALSE], 2,
+              function(cfchn) plot.ts(x=idx, y=cfchn, xy.lines=TRUE,
                                       xlab="Iteration", ylab=coef,
                                       main=paste(coef, "chain"), pch=NA))
-      apply(m$dt_chain[idx, , drop=FALSE], 2,
-            function(cfchn) plot.ts(x=idx, y=cfchn, xy.lines=TRUE,
+      }
+
+      if (ncol(m$dt_chain) > 0) {
+        apply(m$dt_chain[idx, , drop=FALSE], 2,
+              function(cfchn) plot.ts(x=idx, y=cfchn, xy.lines=TRUE,
                                       xlab="Iteration", ylab="Delta",
                                       main="Delta chain", pch=NA))
+      }
     }
     par(old.par)
   }
@@ -92,11 +98,48 @@ plot.circGLM <- function(m, tasp=1, coef="Beta") {
 
 
 # Print the results, but never the elements with the full posteriors.
-print.circGLM <- function(m) {
-  print(m[-grep("chain|Call|data_", names(m))])
-  print(lapply(m[grep("chain", names(m))], head))
-  invisible(return(NULL))
+print.circGLM <- function(m, printChains=FALSE) {
+
+  # Remove empty results (ie. parameters not in current model)
+  empties <- lapply(m, length) == 0
+  m <- m[-which(empties)]
+
+
+
+  # Gather single results
+  singles <- lapply(m, length) == 1
+  singmat <- as.matrix(round(unlist(m[singles]), 3))
+  print(singmat)
+
+  cat("\n\n")
+
+  # Print the rest
+  m <- m[-which(singles)]
+  print(m[-grep("chain|Call|data_|curpars|th_hat", names(m))])
+  cat("\n\n")
+  if (printChains) print(lapply(m[grep("chain", names(m))], head))
+  return(invisible(NULL))
 }
+
+# Print the results, but never the elements with the full posteriors.
+predict.circGLM <- function(m) {
+  m$th_hat
+}
+
+IC_compare.circGLM <- function(...,
+                               ICs = c("n_par", "lppd",
+                                       "AIC", "DIC", "DIC_alt",
+                                       "WAIC1", "WAIC2",
+                                       "p_DIC", "p_DIC_alt",
+                                       "p_WAIC1", "p_WAIC2")) {
+  ms <- list(...)
+
+  comtab <- sapply(ms, function(m) m[ICs])
+
+  colnames(comtab) <- as.character(match.call())[2:(ncol(comtab)+1)]
+  comtab
+}
+
 
 
 fixResultNames <- function(nms){
@@ -115,30 +158,32 @@ fixResultNames <- function(nms){
   nms[grep("zt_CCI", nms)] <- paste0("zt_",
                                      rep(1:nbts, each=2),
                                      c("_LB", "_UB"))
+
   nms
 }
 
 # Plot the plot with the first predictor and the first grouping.
 predict.plot.circGLM <- function(m) {
-  plot(m$data_stX[, 1], m$data_th, pch = 16, col = rgb(m$data_d, 0, 0, 0.6))
+  plot(m$data_stX[, 1], m$data_th, pch = 16,
+       ylim = c(-0.3, 2*pi+0.3), col = rgb(m$data_d[, 1], 0, 0, 0.6))
 
   xmin <- min(m$data_stX)
   xmax <- max(m$data_stX)
 
   sq <- seq(xmin, xmax, length.out = 101)
 
-  pred.grp1 <- m$b0_meandir + atanLF(m$bt_mean %*% t(sq), 2)
-  pred.grp2 <- m$b0_meandir + m$dt_meandir[1] + atanLF(m$bt_mean %*% t(sq), 2)
+  pred.grp1 <- m$b0_meandir + atanLF(m$bt_mean[1] %*% t(sq), 2)
+  pred.grp2 <- m$b0_meandir + m$dt_meandir[1] + atanLF(m$bt_mean[1] %*% t(sq), 2)
 
-  lines(sq, pred.grp1, col = 1, lwd = 2)
+  lines(sq, pred.grp1,        col = 1, lwd = 2)
   lines(sq, pred.grp1 + 2*pi, col = 1, lwd = 2)
-  lines(sq, pred.grp2, col = 2, lwd = 2)
+  lines(sq, pred.grp2,        col = 2, lwd = 2)
   lines(sq, pred.grp2 + 2*pi, col = 2, lwd = 2)
 
 
   abline(h = c(0, 2*pi), col = "gray80")
-  polygon(c(xmin - 1, xmax + 1, xmax + 1, xmin + 1), c(2*pi, 2*pi, 8, 8), col = "gray80")
-  polygon(c(xmin - 1, xmax + 1, xmax + 1, xmin + 1), c(0, 0, -1, -1), col = "gray80")
+  polygon(c(xmin - 1, xmax + 1, xmax + 1, xmin - 1), c(2*pi, 2*pi, 8, 8), col = "gray80")
+  polygon(c(xmin - 1, xmax + 1, xmax + 1, xmin - 1), c(0, 0, -1, -1), col = "gray80")
 }
 
 
@@ -147,7 +192,7 @@ circGLM <- function(th, X,
                     conj_prior = rep(0, 3),
                     bt_prior = matrix(0:1, nrow=ncol(X), ncol=2, byrow=TRUE),
                     starting_values = c(0, 1, rep(0, ncol(X))),
-                    burnin = 1000,
+                    burnin = 0,
                     lag = 1,
                     bwb = rep(.05, ncol(X)),
                     kappaModeEstBandwith = .1,
@@ -159,7 +204,8 @@ circGLM <- function(th, X,
                     output = "list",
                     reparametrize = FALSE,
                     debug = FALSE,
-                    loopDebug = FALSE) {
+                    loopDebug = FALSE,
+                    groupMeanComparisons=TRUE) {
 
   # Check if the inputs are matrices.
   if (!is.matrix(th)) th <- as.matrix(th)
@@ -179,7 +225,7 @@ circGLM <- function(th, X,
 
   d <- X[, dichInd, drop=FALSE]
 
-  bt_prior <- matrix(0:1, nrow=ncol(stX), ncol=2, byrow=TRUE)
+  bt_prior <- matrix(0, nrow=ncol(stX), ncol=2, byrow=TRUE)
 
   res <- circGLMC(th=th, X=stX, D=d,
                   conj_prior=conj_prior, bt_prior=bt_prior, #btd_prior=btd_prior,
@@ -190,16 +236,61 @@ circGLM <- function(th, X,
                   Q=Q, r=r,
                   returnPostSample=returnPostSample,
                   bt_prior_type=bt_prior_type,
-                  reparametrize=reparametrize, debug=debug, loopDebug=loopDebug)
+                  reparametrize=reparametrize, debug=debug, loopDebug=loopDebug,
+                  groupMeanComparisons=groupMeanComparisons)
 
   # Set some names for clarity in the output.
-  names(res$b0_CCI)     <- c("LB", "UB")
-  names(res$kp_HDI)     <- c("LB", "UB")
-  names(res$bt_propacc) <- paste0("bt_", 1:length(res$bt_propacc))
-  colnames(res$bt_CCI)  <- paste0("bt_", 1:ncol(res$bt_CCI))
-  rownames(res$bt_CCI)  <- c("LB", "UB")
-  colnames(res$zt_CCI)  <- paste0("zt_", 1:ncol(res$zt_CCI))
-  rownames(res$zt_CCI)  <- c("LB", "UB")
+  colnames(res$b0_CCI)     <- "Beta_0"
+  rownames(res$b0_CCI)     <- c("LB", "UB")
+  colnames(res$kp_HDI)     <- "Kappa"
+  rownames(res$kp_HDI)     <- c("LB", "UB")
+
+  # Set names only if there are beta's.
+  if (length(res$bt_mean) > 0) {
+    names(res$bt_propacc) <- paste0("bt_", 1:length(res$bt_propacc))
+    colnames(res$bt_CCI)  <- paste0("bt_", 1:ncol(res$bt_CCI))
+    rownames(res$bt_CCI)  <- c("LB", "UB")
+
+    colnames(res$zt_CCI)  <- paste0("zt_", 1:ncol(res$zt_CCI))
+    rownames(res$zt_CCI)  <- c("LB", "UB")
+
+    # Fix names for Beta Bayes Factors
+    res$BetaBayesFactors <- cbind(res$BetaBayesFactors, 1/res$BetaBayesFactors)
+    colnames(res$BetaBayesFactors) <- c("BF(bt>0:bt<0)", "BF(bt<0:bt>0)")
+    rownames(res$BetaBayesFactors) <- paste("Beta", 1:length(res$bt_mean))
+
+  }
+
+  if (length(res$dt_meandir) > 0) {
+    # Fix names for delta estimates
+    colnames(res$dt_meandir)  <- paste0("dt_", 1:ncol(res$dt_CCI))
+    rownames(res$dt_meandir)  <- "MeanDir"
+    colnames(res$dt_CCI)  <- paste0("dt_", 1:ncol(res$dt_CCI))
+    rownames(res$dt_CCI)  <- c("LB", "UB")
+    colnames(res$dt_propacc) <- paste0("dt_", 1:length(res$dt_propacc))
+    rownames(res$dt_propacc) <- "ProportionAccepted"
+
+
+    # Fix names for Delta Bayes Factors
+    res$DeltaBayesFactors <- cbind(res$DeltaBayesFactors, 1/res$DeltaBayesFactors)
+    colnames(res$DeltaBayesFactors) <- c("BF(dt>0:dt<0)", "BF(dt<0:dt>0)")
+    rownames(res$DeltaBayesFactors) <- paste("Delta", 1:length(res$dt_meandir))
+
+
+    if (groupMeanComparisons) {
+
+      res$MuBayesFactors <- cbind(res$MuBayesFactors, 1/res$MuBayesFactors)
+      colnames(res$MuBayesFactors) <- c("BF", "1/BF")
+
+      ngroup <- length(dichInd)+1
+      basemat <- matrix(1:ngroup, ncol=ngroup, nrow=ngroup)
+      first <- t(basemat)[lower.tri(basemat)]
+      last <- basemat[lower.tri(basemat, diag=FALSE)]
+
+      rownames(res$MuBayesFactors) <- paste0("[mu_", first, " > mu_", last,"]")
+    }
+  }
+
 
   # Add a class 'circGLM', which will make the defined plot and print methods
   # for this class work.

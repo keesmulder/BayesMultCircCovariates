@@ -301,56 +301,6 @@ Becayse of the irregular shape of the likelihood, several
 A random walk mechanism can be employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside of this algorithm. We might suggest using a default normal proposal for $\beta$, because the expected area of the parameter space of $\beta$ will be known.
 
 
-\subsection{Algorithm}
-% \begin{algorithm}[H]
-%
-% \texttt{For each $\beta_j$, select an appropriate bandwith $b_j.$}
-%
-% \texttt{Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.}
-%
-%  $m = n + c.$
-%
-%  \For{$i \leftarrow 2$ \KwTo $Q$}{
-%
-%   $\psi_i = \theta_i - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
-%
-%   Compute $\bar\psi$ and $R_{\psi}.$
-%
-%   Draw $\beta_0^{(i)} \sim \mathcal{VM}(\bar\psi, R_{\psi} \kappa).$
-%
-%   $h = - R_\psi  \cos\left(\beta_0 - \bar{\psi}\right).$
-%
-%   Sample $\kappa$ as in \citet{forbes2014fast}, using $(h, m).$
-%
-%   \For{$j \leftarrow 1$ \KwTo $K$}{
-%
-%     Draw $\tau_j \sim U(-b_j, b_j).$
-%
-% 	  $\beta_j^{(can)} = \beta_j^{(i-1)} + \tau_j.$
-%
-% 	  Compute
-% 	  \begin{align*}
-% 	  A_{\beta_j} = ~& \ln L \left( \beta_{k}^{(can)} \vert \beta_0^{(i)}, \boldsymbol\beta_{-(j)}^{(i-1)}, \kappa^{(i)}, \boldsymbol\theta, \boldsymbol{X} \right) + \ln \text{Prior}_{\beta_j}\left(\beta_{j}^{(can)}\right) \\
-% 	  - & \ln L \left( \beta_{j}^{(i-1)} \vert \beta_0^{(i)}, \boldsymbol\beta_{-(j)}^{(i-1)}, \kappa^{(i)}, \boldsymbol\theta, \boldsymbol{X} \right) - \ln \text{Prior}_{\beta_j}\left(\beta_{j}^{(i-1)}\right).
-% 	  \end{align*}
-%
-% 	  Draw $u_j \sim U(0,1).$
-%
-%   	  \eIf{$ A_{\beta_j} > \ln u_j$} {
-%   	    $\beta_j^{(i)} = \beta_j^{(can)}.$
-%   	  }{
-%   	    $\beta_j^{(i)} = \beta_j^{(i-1)}.$
-%   	  }
-%
-% }
-%
-%   }
-%  \caption{An algorithm for the given GLM approach}
-%  \label{basealg}
-% \end{algorithm}
-%
-
-
 \begin{algorithm}[H]
 
 % \texttt{For each $\beta_j$, select an appropriate bandwith $b_j.$}
@@ -361,7 +311,7 @@ A random walk mechanism can be employed for $\boldsymbol\beta$. This requires se
 
  \For{$i \leftarrow 2$ \KwTo $Q$}{
 
-  $\psi_i = \theta_i - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
+  $\psi_i = \theta_i + \boldsymbol{\delta} \boldsymbol{z}_i  - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
 
   Compute $\bar\psi$ and $R_{\psi}.$
 
@@ -428,39 +378,7 @@ A random walk mechanism can be employed for $\boldsymbol\beta$. This requires se
 
 \subsection{Results}
 
-\begin{knitrout}
-\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
-\begin{verbatim}
-##  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-## Simulation study results with number of simulations: . Iterations per dataset Q: .
-## Range of the link function is r*pi, here r = . Using a  prior for Beta.
-## Reparametrization was performed.
-##  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-## 
-## (1) Betadesign: l = 0.05
-##     n kp b0_meandir b0_in_CCI kp_mean kp_mode kp_in_HDI bt_1_mean
-## 1  20  1        1.6      1.00    0.73    0.40      0.97    -0.041
-## 2  50  1        1.6      0.99    0.76    0.71      0.84    -0.010
-## 3 100  1        1.6      0.98    0.93    0.93      0.91     0.019
-## 4  20  4        1.6      0.96    4.33    3.90      0.94     0.029
-## 5  50  4        1.6      0.95    4.24    4.08      0.96     0.049
-## 6 100  4        1.6      0.95    4.11    4.03      0.97     0.052
-## 7  20 32        1.6      0.94   39.46   35.57      0.94     0.049
-## 8  50 32        1.6      0.95   34.76   33.46      0.96     0.050
-## 9 100 32        1.6      0.94   33.06   32.43      0.95     0.050
-##   bt_1_in_CCI
-## 1        1.00
-## 2        1.00
-## 3        1.00
-## 4        0.98
-## 5        0.95
-## 6        0.93
-## 7        0.89
-## 8        0.88
-## 9        0.87
-\end{verbatim}
-\end{kframe}
-\end{knitrout}
+
 
 
 

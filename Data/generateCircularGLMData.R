@@ -4,8 +4,14 @@ sourceCpp("Code/rvmc.cpp")
 
 generateCircGLMData <- function(n=30, residkappa=5, nconpred=2, ncatpred=2,
                                 truebeta0 = pi/2,
-                                truebeta  = rep(.1, nconpred+ncatpred),
+                                truebeta  = rep(.1, nconpred),
+                                truedelta = rep(.1, ncatpred),
                                 linkfun   = function(x) 2 * atan(x)) {
+
+  dtpart <- btpart <- 0
+
+  Xcon <- matrix(nr = n, nc = nconpred)
+  Xcat <- matrix(nr = n, nc = ncatpred)
 
   # Check whether true parameter values must be drawn.
   if (!is.numeric(truebeta0)  && truebeta0 == "random") {
@@ -22,30 +28,24 @@ generateCircGLMData <- function(n=30, residkappa=5, nconpred=2, ncatpred=2,
   if (nconpred > 0) {
     Xcon <- sapply(1:nconpred, function(x) scale(rnorm(n)))
     colnames(Xcon)  <- paste0("l", 1:nconpred)
+    btpart <- linkfun(apply(Xcon, 1, "%*%", truebeta))
   }
 
   if (ncatpred > 0) {
     Xcat  <- sapply(1:ncatpred, function(x) sample(0:1, size=n, replace=TRUE))
     colnames(Xcat) <- paste0("c", 1:ncatpred)
+    dtpart <- apply(Xcat, 1, "%*%", truedelta)
   }
 
-  # Combine continuous and categorical predictors.
-  if (nconpred < 1 & ncatpred < 1) {
-    stop("No predictors.")
-  } else if (nconpred > 0 & ncatpred < 1) {
-    X <- Xcon
-  } else if (nconpred < 1 & ncatpred > 0) {
-    X <- Xcat
-  } else {
-    X <- cbind(Xcon, Xcat)
-  }
+
 
   # Generate values for the circular outcome.
-  thpred <- truebeta0 + linkfun(apply(X, 1, "%*%", truebeta))
-  therr  <- rvmc(n, 0, residkappa)
-  th     <- thpred + therr
+  thpred <- truebeta0 + dtpart + btpart
 
-  dmat   <- cbind(th, X)
+  therr  <- rvmc(n, 0, residkappa)
+  th     <- (thpred + therr) %% (2*pi)
+
+  dmat   <- cbind(th, Xcon, Xcat)
 
   # Save the percentage of data that is found around the true beta_0.
   uLB <- truebeta0-pi/2 %% (2*pi)

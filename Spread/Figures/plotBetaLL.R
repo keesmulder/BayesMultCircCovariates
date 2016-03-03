@@ -31,11 +31,11 @@ plotbeta <- function(th, X, normalPrior=FALSE, res = 100, xl = c(-10, 10),
 
   if (!normalPrior) {
     betall <- Vectorize(function (b) {
-      ll(b0 = b0, kp = kp, bt = b, th = th, X = X, r = r)
+      ll(b0 = b0, kp = kp, bt = b, dt = numeric(0), th = th, X = X, D = matrix(ncol = 0, nrow = nrow(X)), r = r)
     })
   } else {
     betall <- Vectorize(function (b) {
-      ll(b0 = b0, kp = kp, bt = b, th = th, X = X, r = r) +
+      ll(b0 = b0, kp = kp, bt = b, dt = numeric(0), th = th, X = X, D = matrix(ncol = 0, nrow = nrow(X)), r = r) +
         logProbNormal(b, mu, sd)
     })
   }

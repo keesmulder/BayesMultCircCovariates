@@ -303,56 +303,6 @@ Becayse of the irregular shape of the likelihood, several
 A random walk mechanism can be employed for $\boldsymbol\beta$. This requires setting some bandwith, which may be considered a downside of this algorithm. We might suggest using a default normal proposal for $\beta$, because the expected area of the parameter space of $\beta$ will be known.
 
 
-\subsection{Algorithm}
-% \begin{algorithm}[H]
-%
-% \texttt{For each $\beta_j$, select an appropriate bandwith $b_j.$}
-%
-% \texttt{Set $\boldsymbol{\beta}^{(1)}$ and $\kappa^{(1)}$ to their starting values.}
-%
-%  $m = n + c.$
-%
-%  \For{$i \leftarrow 2$ \KwTo $Q$}{
-%
-%   $\psi_i = \theta_i - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
-%
-%   Compute $\bar\psi$ and $R_{\psi}.$
-%
-%   Draw $\beta_0^{(i)} \sim \mathcal{VM}(\bar\psi, R_{\psi} \kappa).$
-%
-%   $h = - R_\psi  \cos\left(\beta_0 - \bar{\psi}\right).$
-%
-%   Sample $\kappa$ as in \citet{forbes2014fast}, using $(h, m).$
-%
-%   \For{$j \leftarrow 1$ \KwTo $K$}{
-%
-%     Draw $\tau_j \sim U(-b_j, b_j).$
-%
-% 	  $\beta_j^{(can)} = \beta_j^{(i-1)} + \tau_j.$
-%
-% 	  Compute
-% 	  \begin{align*}
-% 	  A_{\beta_j} = ~& \ln L \left( \beta_{k}^{(can)} \vert \beta_0^{(i)}, \boldsymbol\beta_{-(j)}^{(i-1)}, \kappa^{(i)}, \boldsymbol\theta, \boldsymbol{X} \right) + \ln \text{Prior}_{\beta_j}\left(\beta_{j}^{(can)}\right) \\
-% 	  - & \ln L \left( \beta_{j}^{(i-1)} \vert \beta_0^{(i)}, \boldsymbol\beta_{-(j)}^{(i-1)}, \kappa^{(i)}, \boldsymbol\theta, \boldsymbol{X} \right) - \ln \text{Prior}_{\beta_j}\left(\beta_{j}^{(i-1)}\right).
-% 	  \end{align*}
-%
-% 	  Draw $u_j \sim U(0,1).$
-%
-%   	  \eIf{$ A_{\beta_j} > \ln u_j$} {
-%   	    $\beta_j^{(i)} = \beta_j^{(can)}.$
-%   	  }{
-%   	    $\beta_j^{(i)} = \beta_j^{(i-1)}.$
-%   	  }
-%
-% }
-%
-%   }
-%  \caption{An algorithm for the given GLM approach}
-%  \label{basealg}
-% \end{algorithm}
-%
-
-
 \begin{algorithm}[H]
 
 % \texttt{For each $\beta_j$, select an appropriate bandwith $b_j.$}
@@ -363,7 +313,7 @@ A random walk mechanism can be employed for $\boldsymbol\beta$. This requires se
 
  \For{$i \leftarrow 2$ \KwTo $Q$}{
 
-  $\psi_i = \theta_i - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
+  $\psi_i = \theta_i + \boldsymbol{\delta} \boldsymbol{z}_i  - g (\boldsymbol{\beta}^T \boldsymbol{x}_i),$ for each $i = 1, \dots, n.$
 
   Compute $\bar\psi$ and $R_{\psi}.$
 
@@ -436,11 +386,11 @@ load(paste0("Simulation/Results/[simStudCircGLM_nsim1000_Q20000_burnin1000_r2_bt
 
 # print.cGLMSim(simStudyResults)
 
-print.cGLMSim(simStudyResults[1], selection = list('n', 'kp',
-                                         'b0_meandir', 'b0_in_CCI',
-                                         'kp_mean', 'kp_mode', 'kp_in_HDI',
-                                         'bt_1_mean', 'bt_1_in_CCI'))
-
+# print.cGLMSim(simStudyResults[1], selection = list('n', 'kp',
+#                                          'b0_meandir', 'b0_in_CCI',
+#                                          'kp_mean', 'kp_mode', 'kp_in_HDI',
+#                                          'bt_1_mean', 'bt_1_in_CCI'))
+# 
 
 @
 
