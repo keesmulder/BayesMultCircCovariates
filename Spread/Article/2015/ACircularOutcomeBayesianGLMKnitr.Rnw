@@ -390,7 +390,7 @@ load(paste0("Simulation/Results/[simStudCircGLM_nsim1000_Q20000_burnin1000_r2_bt
 #                                          'b0_meandir', 'b0_in_CCI',
 #                                          'kp_mean', 'kp_mode', 'kp_in_HDI',
 #                                          'bt_1_mean', 'bt_1_in_CCI'))
-# 
+#
 
 @
 

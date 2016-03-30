@@ -1,0 +1,8 @@
+base
+knitr
+ggthemes
+gridExtra
+ggplot2
+Rcpp
+dplyr
+circular

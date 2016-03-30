@@ -7,15 +7,17 @@ library(dplyr)
 
 # Method for printing simulation results.
 print.cGLMSim <- function(res, header=TRUE, digits=2,
-                          selection=list('n', 'kp',
-                                         'b0_meandir', 'b0_in_CCI',
-                                         'kp_mean', 'kp_mode', 'kp_in_HDI',
-                                         'bt_1_mean', 'bt_1_in_CCI',
-                                         #     'zt_1_mean', 'zt_1_mdir', 'zt_1_in_CCI',
-                                         'crashed')) {
+                          selection='automatic') {
 
   oldDgt <- options()$digits
   options(digits=digits)
+
+  if (selection == 'default') {
+    selcols <- list('n', 'kp',
+                    'b0_meandir', 'b0_in_CCI',
+                    'kp_mean', 'kp_mode', 'kp_in_HDI',
+                    'crashed')
+  }
 
   resdes <- attr(res, 'args')
   if (header) {
@@ -23,10 +25,10 @@ print.cGLMSim <- function(res, header=TRUE, digits=2,
         "Simulation study results with number of simulations: ", resdes$nsim,
         ". Iterations per dataset Q: ", resdes$mcmcpar$Q, ".",
         "\nRange of the link function is r*pi, here r = ", resdes$mcmcpar$r,
-        ". Using a ", ifelse(resdes$mcmcpar$bt_prior_type,
-                             paste0("N(", resdes$betaDesigns[[1]]$bt_prior[1], ", ",
-                                    resdes$betaDesigns[[1]]$bt_prior[2], ")"),
-                             "constant"),
+        ". Using an ", ifelse(resdes$predDesigns[[2]]$bt_prior_type,
+                              paste0("N(", resdes$predDesigns[[1]]$bt_prior_musd[1], ", ",
+                                     resdes$predDesigns[[1]]$bt_prior_musd[2], ")"),
+                              "constant"),
         " prior for Beta.\n", "Reparametrization was ",
         ifelse(resdes$mcmcpar$reparametrize, "", "not "), "performed.\n",
         " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - \n",
@@ -34,12 +36,28 @@ print.cGLMSim <- function(res, header=TRUE, digits=2,
   }
 
   for (i in 1:length(res)) {
-    cat("\n(", i, ") Betadesign: ",
+    cat("\n(", i, ") predDesign: ",
         gsub('c\\(', "(", names(res)[i]), "\n", sep = "")
     if (selection == "all"){
       print(res[[i]])
-    } else {
-      print(do.call(select_, c(list(res[[i]]), .dots = list(selection))))
+    } else if (selection == 'automatic') {
+      btcols <- dtcols <- NULL
+      if(any(grepl("bt.*mean", names(res[[i]])))) {
+        btcols <- c("bt_1_mean", "bt_1_in_CCI")
+      }
+      if(any(grepl("dt.*mdir", names(res[[i]])))) {
+        dtcols <- c("dt_1_mdir", "dt_1_in_CCI")
+      }
+      selcols <-  c('n', 'kp',
+                    'b0_meandir', 'b0_in_CCI',
+                    'kp_mean', 'kp_mode', 'kp_in_HDI',
+                    btcols, dtcols,
+                    'crashed')
+
+
+      print(do.call(select_, c(list(res[[i]]), .dots = list(selcols))))
+    } else if (selection == 'default') {
+      print(do.call(select_, c(list(res[[i]]), .dots = list(selcols))))
     }
   }
   options(digits=oldDgt)
@@ -47,19 +65,19 @@ print.cGLMSim <- function(res, header=TRUE, digits=2,
 
 # Method for obtaining a single vector of length nsim, containing results from a
 # single statistic for a design of the simulation study.
-slice.cGLMSim <- function(res, btDesNumber, n, kp, stat) {
-  attr(res[[btDesNumber]], "full")[,
+slice.cGLMSim <- function(res, pdDesNumber, n, kp, stat) {
+  attr(res[[pdDesNumber]], "full")[,
                                    stat,
                                    as.character(n),
                                    as.character(kp)]
 }
 
 # Method for plotting simulation results.
-plot.cGLMSim <- function(res, btDesNumber, n, kp, stat, ...) {
-  mn <- paste0("Histogram of ", stat, " from Betadesign (", btDesNumber,
+plot.cGLMSim <- function(res, pdDesNumber, n, kp, stat, ...) {
+  mn <- paste0("Histogram of ", stat, " from predDesign (", pdDesNumber,
                "), n=", n, ", ", "kappa=", kp, ". ")
 
-  hist(slice.cGLMSim(res, btDesNumber, n, kp, stat),
+  hist(slice.cGLMSim(res, pdDesNumber, n, kp, stat),
        main=mn, xlab=stat, ...)
 }
 
@@ -70,8 +88,13 @@ angleInCircInterval <- function (th, CI) {
   if(CI[1] > CI[2]) return(unname(th > CI[1] | th < CI[2]))
 }
 
+
+
+
+
+
 # returns is a character vector of regular expressions which will match
-simStudyCircGLM <- function(truens, truekps, betaDesigns,
+simStudyCircGLM <- function(truens, truekps, predDesigns,
                             nsim = 100,
                             saveResults=TRUE, overwrite = TRUE,
                             seed=489734,
@@ -82,14 +105,13 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
                                          kappaModeEstBandwith=.05,
                                          CIsize=.95,
                                          r=2,
-                                         reparametrize   = TRUE,
-                                         bt_prior_type=1),
+                                         reparametrize = TRUE),
                             returns = c()) {
 
   set.seed(seed)
 
   # Set those values to list that may have been provided by themselves.
-  if(!is.list(betaDesigns[[1]])) betaDesigns %<>% list
+  if(!is.list(predDesigns[[1]])) predDesigns %<>% list
 
   # The directory containing the datasets.
   datasetsDir <- paste0(getwd(), "/Data/Datasets/")
@@ -98,24 +120,24 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
   simStudyResults  <- list()
 
 
-  btDesName <-  paste0("bt",
-                       paste0(sapply(betaDesigns,
-                                     function(x) {
-                                       if (length(unique(x[[1]])) == 1) {
-                                         return(paste0(names(x)[1],
-                                                       "=", x[[1]][1], collapse=","))
-                                       } else {
-                                         return(paste0(names(x)[1], "=",
-                                                       paste(x[[1]], collapse=",")))
-                                       }
-                                     }
-                       ),
-                       collapse=","))
-  btDesName <-  paste0("bt",
-                       paste0(unique(unlist(sapply(betaDesigns,
+  # pdDesName <-  paste0("bt",
+  #                      paste0(sapply(predDesigns,
+  #                                    function(x) {
+  #                                      if (length(unique(x[[1]])) == 1) {
+  #                                        return(paste0(names(x)[1],
+  #                                                      "=", x[[1]][1], collapse=","))
+  #                                      } else {
+  #                                        return(paste0(names(x)[1], "=",
+  #                                                      paste(x[[1]], collapse=",")))
+  #                                      }
+  #                                    }
+  #                      ),
+  #                      collapse=","))
+  pdDesName <-  paste0("bt",
+                       paste0(unique(unlist(sapply(predDesigns,
                                                    function(x) names(x)[1]))),
                               collapse=","), ",",
-                       paste0(unique(unlist(sapply(betaDesigns,
+                       paste0(unique(unlist(sapply(predDesigns,
                                                    function(x) x[[1]]))),
                               collapse=","),
                        collapse=",")
@@ -128,7 +150,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
                        paste0("seed",     seed),
                        paste0("n",        paste(truens,  collapse=",")),
                        paste0("kp",       paste(truekps, collapse=",")),
-                       paste0(btDesName, "].rda"), sep = "_")
+                       paste0(pdDesName, "].rda"), sep = "_")
   simFilePath <- paste0(getwd(), "/Simulation/Results/", simFileName)
 
   print(simFilePath)
@@ -145,26 +167,39 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
   }
 
   # Total number of designs and a counter, to be used for progressbar.
-  totalNDesigns      <- length(truens) * length(truekps) * length(betaDesigns)
+  totalNDesigns      <- length(truens) * length(truekps) * length(predDesigns)
   totalDesignCounter <- 0
 
   # The outermost loop loops through different values for K. If we have a
   # different number of predictors, the output will look different.
-  for(btdes in betaDesigns) {
+  for(pddes in predDesigns) {
 
-    # Current beta design.
-    curTrueBts <- btdes[1]
-    nbts       <- length(curTrueBts[[1]])
+    # pddes <- predDesigns[[1]]
+
+    # Current predictor design.
+    curTruePds     <- pddes[1]
+    curTruePdTypes <- strsplit(names(curTruePds), "")[[1]]
+    conidx         <- curTruePdTypes == "l"
+    catidx         <- curTruePdTypes == "c"
+    npds           <- length(curTruePds[[1]])
+    nbts           <- sum(conidx)
+    ndts           <- sum(catidx)
+
+    # Current true values for predictors.
+    curTrueBts     <- curTruePds[[1]][conidx]
+    curTrueDts     <- curTruePds[[1]][catidx]
 
     designs    <- expand.grid(n=truens,
                               kp=truekps,
-                              bt=curTrueBts,
-                              starting_values=btdes[2],
-                              bt_prior=btdes[3],
-                              bwb=btdes[4])
+                              pred=curTruePds,
+                              starting_values=pddes[2],
+                              bt_prior_musd=pddes[3],
+                              bt_prior_type=pddes[4],
+                              bwb=pddes[5])
     ndesigns   <- nrow(designs)
 
-    curPar     <- c(mcmcpar, btdes[-1], returnPostSample=FALSE)
+
+    curPar     <- c(mcmcpar, pddes[-1], returnPostSample=FALSE)
 
 
     # Now go through all the other elements of the design.
@@ -174,17 +209,20 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
 
       curDesign <- designs[idesign, ]
 
+
+
       curReadDir <- paste0("n=",       curDesign$n,
                            "_kp=",     curDesign$kp,
-                           "_bt=",     curDesign$bt,
-                           "_bttype=", names(curDesign$bt))
+                           "_pred=",   curDesign$pred,
+                           "_predtype=", names(curDesign$pred))
 
       # Progress bar
       pb <- winProgressBar(title = paste0("SimStudyCircGLM with nsim  =  ",
                                           nsim,         "  |  n = ",
-                                          curDesign[1], "  |  kp = " ,
-                                          curDesign[2], "  |  bt = " ,
-                                          curDesign[3]),
+                                          curDesign$n,  "  |  kp = " ,
+                                          curDesign$kp, "  |  predtype = " ,
+                                          names(curDesign$pred),"  |  pred = " ,
+                                          curDesign$pred),
                            label=paste0("Design ", idesign, "/", ndesigns, ":",
                                         "0% done. Starting now."),
                            min=0, max=nsim, initial=0,
@@ -193,6 +231,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
       # Save time to analyze each dataset in order to give an estimate of
       # duration.
       simTimes <- rep(NA, nsim)
+
 
       for (isim in 1:nsim) {
 
@@ -231,28 +270,34 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
 
 
           #### BETA  ####
-          bt_means <- curSimRes[grep("bt.*mean", names(curSimRes))]
-          bt_LBs   <- curSimRes[grep("bt.*LB",   names(curSimRes))]
-          bt_UBs   <- curSimRes[grep("bt.*UB",   names(curSimRes))]
+          if (any(grepl("bt.*mean", names(curSimRes)))) {
+            bt_means <- curSimRes[grep("bt.*mean", names(curSimRes))]
+            bt_LBs   <- curSimRes[grep("bt.*LB",   names(curSimRes))]
+            bt_UBs   <- curSimRes[grep("bt.*UB",   names(curSimRes))]
 
-          bt_bias        <- bt_means - curDesign$bt[[1]]
-          names(bt_bias) <- paste0("bt_", 1:nbts, "_bias")
+            bt_bias        <- bt_means - curTrueBts
+            names(bt_bias) <- paste0("bt_", 1:nbts, "_bias")
 
-          bt_in_CCI <- curDesign$bt[[1]] > bt_LBs & curDesign$bt[[1]] < bt_UBs
-          names(bt_in_CCI) <- paste0("bt_", 1:nbts, "_in_CCI")
+            bt_in_CCI <- curTrueBts > bt_LBs & curTrueBts < bt_UBs
+            names(bt_in_CCI) <- paste0("bt_", 1:nbts, "_in_CCI")
 
-          bt_res <- c(bt_bias,
-                      bt_bias_meanOverBt = mean(bt_bias),
-                      bt_in_CCI,
-                      bt_in_CCI_meanOverBt = mean(bt_in_CCI))
+            bt_res <- c(bt_bias,
+                        bt_bias_meanOverBt = mean(bt_bias),
+                        bt_in_CCI,
+                        bt_in_CCI_meanOverBt = mean(bt_in_CCI))
+          } else {
+            bt_res <- NULL
+          }
           ###############
+
+
 
 
 
           #### ZETA  ####
           if (any(grepl("zt.*mean", names(curSimRes)))) {
 
-            true_zt        <- atanLF(curDesign$bt[[1]], 2/pi)
+            true_zt        <- atanLF(curTrueBts, 2/pi)
             zt_means       <- curSimRes[grep("zt.*mean", names(curSimRes))]
             zt_meandirs    <- curSimRes[grep("zt.*mdir", names(curSimRes))]
             zt_LBs         <- curSimRes[grep("zt.*LB",   names(curSimRes))]
@@ -278,6 +323,40 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
 
 
 
+
+
+
+          #### DELTA  ####
+          if (any(grepl("dt.*mdir", names(curSimRes)))) {
+            dt_meandirs <- curSimRes[grep("dt.*mdir", names(curSimRes))]
+            dt_LBs      <- curSimRes[grep("dt.*LB",   names(curSimRes))]
+            dt_UBs      <- curSimRes[grep("dt.*UB",   names(curSimRes))]
+
+            dt_bias        <- dt_meandirs - curTrueDts
+            names(dt_bias) <- paste0("dt_", 1:ndts, "_bias")
+
+            dt_in_CCI <- numeric(ndts)
+
+            for (dti in 1:ndts) {
+              dt_in_CCI[dti] <- angleInCircInterval(curTrueDts[dti],
+                                                    c(dt_LBs[dti], dt_UBs[dti]))
+            }
+
+            names(dt_in_CCI) <- paste0("dt_", 1:ndts, "_in_CCI")
+
+            dt_res <- c(dt_bias,
+                        dt_bias_meanOverDt = mean(dt_bias),
+                        dt_in_CCI,
+                        dt_in_CCI_meanOverDt = mean(dt_in_CCI))
+          } else {
+            dt_res <- NULL
+          }
+          ###############
+
+
+
+
+
           ###############
           # Gather results.
           # True beta_0 should always be generated as pi/2.
@@ -285,6 +364,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
                           kp_res,
                           bt_res,
                           zt_res,
+                          dt_res,
                           crashed = FALSE)
 
           curCombinedRes <- c(curSimRes, biasCvgRes)
@@ -307,10 +387,11 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
           colnames(curDgnRes) <- names(curCombinedRes)
         }
 
+
         curDgnRes[isim, ] <- curCombinedRes
 
         # Progress bar
-        simTimes[isim]     <- curSimRes['TimeTaken']
+        simTimes[isim]     <- curSimRes['TimeTaken4']
         avgTimeTaken       <- mean(simTimes, na.rm = TRUE)
         timeRemaining      <- (nsim - isim) * avgTimeTaken
         dispTimeRemaining  <- ifelse(timeRemaining > 120,
@@ -328,7 +409,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
       } # End of 1:nsim loop.
       close(pb)
 
-      # With the first design, create output objects for this Betadesign.
+      # With the first design, create output objects for this predDesign.
       if (idesign == 1) {
 
         thisBtdesDf    <- cbind(designs,
@@ -356,7 +437,7 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
                                   computeMeanDirection(na.omit(curDgnRes[, "b0_bias"])),
                                 apply(curDgnRes[, -circIdx], 2, mean, na.rm=TRUE))
 
-      thisBtdesDf[idesign, -(1:6)] <- summaryThisDesignRes
+      thisBtdesDf[idesign, -(1:7)] <- summaryThisDesignRes
 
       # For the full output, we place the full results into the large array.
       thisBtdesFullArray[, , as.character(curDesign$n),
@@ -365,15 +446,15 @@ simStudyCircGLM <- function(truens, truekps, betaDesigns,
     } # End of 1:ndesigns loop.
 
 
-    btdesName <- paste(names(curTrueBts), "=", curTrueBts)
+    pddesName <- paste(names(curTruePds), "=", curTruePds)
 
-    colnames(thisBtdesDf)[-(1:6)] <- names(summaryThisDesignRes)
-    simStudyResults[[btdesName]] <- thisBtdesDf
+    colnames(thisBtdesDf)[-(1:7)] <- names(summaryThisDesignRes)
+    simStudyResults[[pddesName]] <- thisBtdesDf
 
     dimnames(thisBtdesFullArray)[[2]] <- names(summaryThisDesignRes)
-    attr(simStudyResults[[btdesName]], "full") <- thisBtdesFullArray
+    attr(simStudyResults[[pddesName]], "full") <- thisBtdesFullArray
 
-  } # End of betaDesigns loop.
+  } # End of predDesigns loop.
 
   class(simStudyResults) <- c("cGLMSim", class(simStudyResults))
   attr(simStudyResults, 'call') <- match.call()

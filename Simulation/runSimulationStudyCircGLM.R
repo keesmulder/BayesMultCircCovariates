@@ -3,46 +3,73 @@ source('Simulation/simulationStudyCircGLM.R')
 
 library(dplyr)
 
+makePredList <- function(pg) {
+  pl <- list()
+  for (i in 1:nrow(pg)) {
+    pl[[i]] <- rep(pg$pred[i], pg$n[i])
+
+    if (pg[i, "type"] == "anc") {
+      names(pl)[i] <- paste0(c("c", rep("l", pg$n[i]-1)), collapse="")
+    } else {
+      names(pl)[i] <- paste0(rep(pg$type[i], pg$n[i]), collapse="")
+    }
+  }
+  pl
+}
+
+
+
+
 # Properties of the simulation study.
 truens  <- c(20, 50, 100)
-truekps <- c(1, 4, 32)
+truekps <- c(1, 4, 10)
 # truebeta0 is always pi/2 because it should be irrelevant.
 
-nbts       <- rep(c(1, 3, 6), each=4)
-truebtvals <- rep(c(0.05, 0.3), times=6)
-type       <- rep(c("l","c"), times=3, each=2)
+npreds   <- c(1, 3, 6)
+truepred <- c(.05, -0.2)
+type     <- c("l", "anc", "c")
 
-truebts <- sapply(1:length(nbts), function(i) {
-  out        <- list(rep(truebtvals[i], nbts[i]))
-  names(out) <- paste0(rep(type[i], nbts[i]), collapse="")
-  out
-})
+pg <- expand.grid(n=npreds, pred=truepred, type=type)
+
+pl <- makePredList(pg)
 
 nsim <- 1000
 
 # Save the datasets as .csv files.
-saveCircGLMDatasets(truens = truens, truekps = truekps, truebts = truebts,
+saveCircGLMDatasets(truens = truens, truekps = truekps, truepreds = pl,
                     truebeta0 = truebeta0, nsim = nsim)
 
 # General MCMC parameters.
-mcmcpar=list(conj_prior = rep(0, 3), bt_prior_type=1,
+mcmcpar=list(conj_prior = rep(0, 3),
              Q=20000, burnin = 1000, lag = 1,
              kappaModeEstBandwith=.05, CIsize=.95,
              r=2, reparametrize=TRUE)
 
 # Generate the designs for Beta
-betaDesigns <- lapply(1:length(nbts), function(i){
-  c(truebts[i],
-    list(starting_values=c(0, 1, rep(0, nbts[i])),
-         bt_prior=matrix(c(0,2), nc=2, nr=nbts[i], byrow = TRUE),
-         bwb=rep(.05, nbts[i])))
+predDesigns <- lapply(1:nrow(pg), function(i){
+  c(pl[i],
+    list(starting_values=c(0, 1, rep(0, pg$n[i])),
+         bt_prior_musd=c("mu"=0, "sd"=1),
+         bt_prior_type=1,
+         bwb=rep(.05, pg$n[i])))
 })
 
 # Run the simulation study.
 simres <- simStudyCircGLM(nsim = nsim,
                        truens = truens, truekps = truekps,
-                       betaDesigns = betaDesigns, overwrite=FALSE,
+                       predDesigns = predDesigns, overwrite=TRUE,
                        seed = 389238, mcmcpar = mcmcpar)
+
+
+
+
+
+
+
+
+
+
+
 
 
 

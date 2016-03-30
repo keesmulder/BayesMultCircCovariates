@@ -102,7 +102,7 @@ print.circGLM <- function(m, printChains=FALSE) {
 
   # Remove empty results (ie. parameters not in current model)
   empties <- lapply(m, length) == 0
-  m <- m[-which(empties)]
+  if(any(empties)) m <- m[-which(empties)]
 
 
 
@@ -114,8 +114,11 @@ print.circGLM <- function(m, printChains=FALSE) {
   cat("\n\n")
 
   # Print the rest
-  m <- m[-which(singles)]
-  print(m[-grep("chain|Call|data_|curpars|th_hat", names(m))])
+  if(any(singles)) m <- m[-which(singles)]
+
+  rem_str <- "chain|Call|data_|curpars|th_hat|MuSDDBayesFactors"
+  print(m[-grep(rem_str, names(m))])
+
   cat("\n\n")
   if (printChains) print(lapply(m[grep("chain", names(m))], head))
   return(invisible(NULL))
@@ -144,36 +147,60 @@ IC_compare.circGLM <- function(...,
 
 fixResultNames <- function(nms){
 
-  nbts <- length(grep("bt_mean", nms))
-
   nms[grep("b0_CCI", nms)]     <- c("b0_CCI_LB", "b0_CCI_UB")
   nms[grep("kp_HDI", nms)]     <- c("kp_HDI_LB", "kp_HDI_UB")
-  nms[grep("bt_mean", nms)]    <- paste0("bt_", 1:nbts, "_mean")
-  nms[grep("zt_mean", nms)]    <- paste0("zt_", 1:nbts, "_mean")
-  nms[grep("zt_mdir", nms)]    <- paste0("zt_", 1:nbts, "_mdir")
-  nms[grep("bt_propacc", nms)] <- paste0("bt_", 1:nbts, "_propacc")
-  nms[grep("bt_CCI", nms)] <- paste0("bt_",
-                                     rep(1:nbts, each=2),
-                                     c("_LB", "_UB"))
-  nms[grep("zt_CCI", nms)] <- paste0("zt_",
-                                     rep(1:nbts, each=2),
-                                     c("_LB", "_UB"))
+
+  # Beta/Zeta
+  nbts <- length(grep("bt_mean", nms))
+  if (nbts > 0) {
+    nms[grep("bt_mean", nms)]    <- paste0("bt_", 1:nbts, "_mean")
+    nms[grep("zt_mean", nms)]    <- paste0("zt_", 1:nbts, "_mean")
+    nms[grep("zt_mdir", nms)]    <- paste0("zt_", 1:nbts, "_mdir")
+    nms[grep("bt_propacc", nms)] <- paste0("bt_", 1:nbts, "_propacc")
+    nms[grep("bt_CCI", nms)] <- paste0("bt_",
+                                       rep(1:nbts, each=2),
+                                       c("_LB", "_UB"))
+    nms[grep("zt_CCI", nms)] <- paste0("zt_",
+                                       rep(1:nbts, each=2),
+                                       c("_LB", "_UB"))
+  }
+
+  # Delta
+  ndts <- length(grep("dt_meandir", nms))
+  if (ndts > 0) {
+
+    nms[grep("dt_meandir", nms)] <- paste0("dt_", 1:ndts, "_mdir")
+    nms[grep("dt_propacc", nms)] <- paste0("dt_", 1:ndts, "_propacc")
+    nms[grep("dt_CCI", nms)] <- paste0("dt_",
+                                       rep(1:ndts, each=2),
+                                       c("_LB", "_UB"))
+  }
 
   nms
 }
 
 # Plot the plot with the first predictor and the first grouping.
-predict.plot.circGLM <- function(m) {
+predict.plot.circGLM <- function(m, groupingInBeta = FALSE) {
+
+  if(groupingInBeta) m$data_d <- m$data_stX[,2, drop=FALSE]
+
   plot(m$data_stX[, 1], m$data_th, pch = 16,
        ylim = c(-0.3, 2*pi+0.3), col = rgb(m$data_d[, 1], 0, 0, 0.6))
 
   xmin <- min(m$data_stX)
   xmax <- max(m$data_stX)
 
-  sq <- seq(xmin, xmax, length.out = 101)
+  nsq <- 101
 
-  pred.grp1 <- m$b0_meandir + atanLF(m$bt_mean[1] %*% t(sq), 2)
-  pred.grp2 <- m$b0_meandir + m$dt_meandir[1] + atanLF(m$bt_mean[1] %*% t(sq), 2)
+  sq <- seq(xmin, xmax, length.out = nsq)
+
+  if (!groupingInBeta) {
+    pred.grp1 <- m$b0_meandir + atanLF(m$bt_mean[1] %*% t(sq), 2)
+    pred.grp2 <- m$b0_meandir + m$dt_meandir[1] + atanLF(m$bt_mean[1] %*% t(sq), 2)
+  } else {
+    pred.grp1 <- m$b0_meandir + atanLF(m$bt_mean[1:2] %*% rbind(t(sq), rep(0, nsq)), 2)
+    pred.grp2 <- m$b0_meandir + atanLF(m$bt_mean[1:2] %*% rbind(t(sq), rep(1, nsq)), 2)
+  }
 
   lines(sq, pred.grp1,        col = 1, lwd = 2)
   lines(sq, pred.grp1 + 2*pi, col = 1, lwd = 2)
@@ -185,27 +212,28 @@ predict.plot.circGLM <- function(m) {
   polygon(c(xmin - 1, xmax + 1, xmax + 1, xmin - 1), c(2*pi, 2*pi, 8, 8), col = "gray80")
   polygon(c(xmin - 1, xmax + 1, xmax + 1, xmin - 1), c(0, 0, -1, -1), col = "gray80")
 }
-
+plot.predict.circGLM <- predict.plot.circGLM
 
 
 circGLM <- function(th, X,
                     conj_prior = rep(0, 3),
-                    bt_prior = matrix(0:1, nrow=ncol(X), ncol=2, byrow=TRUE),
+                    bt_prior_musd = c("mu"=0, "sd"=1),
                     starting_values = c(0, 1, rep(0, ncol(X))),
-                    burnin = 0,
+                    burnin = 1000,
                     lag = 1,
                     bwb = rep(.05, ncol(X)),
                     kappaModeEstBandwith = .1,
                     CIsize = .95,
                     Q = 10000,
                     r = 2,
-                    returnPostSample = FALSE,
+                    returnPostSample = TRUE,
                     bt_prior_type=1,
                     output = "list",
                     reparametrize = FALSE,
                     debug = FALSE,
                     loopDebug = FALSE,
-                    groupMeanComparisons=TRUE) {
+                    groupMeanComparisons=TRUE,
+                    skipDichSplit = FALSE) {
 
   # Check if the inputs are matrices.
   if (!is.matrix(th)) th <- as.matrix(th)
@@ -213,22 +241,38 @@ circGLM <- function(th, X,
 
   # Check if theta is in radians
   if (any(th > 7)) {
-    cat("Setting theta to radians instead of degrees.")
+    # cat("Setting theta to radians instead of degrees.")
     th <- th * pi / 180
   }
+
 
   # Indices of dichotomous predictors.
   dichInd <- apply(X, 2, is.dichotomous)
 
-  # Standardize continuous predictors.
-  stX <- scale(X[, !dichInd, drop=FALSE])
 
-  d <- X[, dichInd, drop=FALSE]
+  if (!skipDichSplit) {
 
-  bt_prior <- matrix(0, nrow=ncol(stX), ncol=2, byrow=TRUE)
+    # Standardize continuous predictors.
+    stX <- scale(X[, !dichInd, drop=FALSE])
+
+    d <- X[, dichInd, drop=FALSE]
+
+  } else {
+    # Standardize continuous predictors.
+    stX <- cbind(scale(X[, !dichInd, drop=FALSE]), X[, dichInd, drop=FALSE])
+
+    d <- matrix(nrow=nrow(X), ncol=0)
+  }
+
+
+  if (ncol(stX) > 0) {
+    bt_prior <- matrix(bt_prior_musd, nrow=ncol(stX), ncol=2, byrow=TRUE)
+  } else {
+    bt_prior <- matrix(NA, nrow=0, ncol=2, byrow=TRUE)
+  }
 
   res <- circGLMC(th=th, X=stX, D=d,
-                  conj_prior=conj_prior, bt_prior=bt_prior, #btd_prior=btd_prior,
+                  conj_prior=conj_prior, bt_prior=bt_prior,
                   starting_values=starting_values,
                   burnin=burnin, lag=lag, bwb=bwb,
                   kappaModeEstBandwith=kappaModeEstBandwith,
@@ -238,6 +282,9 @@ circGLM <- function(th, X,
                   bt_prior_type=bt_prior_type,
                   reparametrize=reparametrize, debug=debug, loopDebug=loopDebug,
                   groupMeanComparisons=groupMeanComparisons)
+
+
+  ### FIXING NAMES
 
   # Set some names for clarity in the output.
   colnames(res$b0_CCI)     <- "Beta_0"
@@ -255,8 +302,9 @@ circGLM <- function(th, X,
     rownames(res$zt_CCI)  <- c("LB", "UB")
 
     # Fix names for Beta Bayes Factors
-    res$BetaBayesFactors <- cbind(res$BetaBayesFactors, 1/res$BetaBayesFactors)
-    colnames(res$BetaBayesFactors) <- c("BF(bt>0:bt<0)", "BF(bt<0:bt>0)")
+    res$BetaBayesFactors <- cbind(res$BetaIneqBayesFactors, res$BetaSDDBayesFactors)
+    colnames(res$BetaBayesFactors) <- c("BF(bt>0:bt<0)",
+                                        "BF(bt==0:bt=/=0)")
     rownames(res$BetaBayesFactors) <- paste("Beta", 1:length(res$bt_mean))
 
   }
@@ -271,25 +319,32 @@ circGLM <- function(th, X,
     rownames(res$dt_propacc) <- "ProportionAccepted"
 
 
-    # Fix names for Delta Bayes Factors
-    res$DeltaBayesFactors <- cbind(res$DeltaBayesFactors, 1/res$DeltaBayesFactors)
-    colnames(res$DeltaBayesFactors) <- c("BF(dt>0:dt<0)", "BF(dt<0:dt>0)")
-    rownames(res$DeltaBayesFactors) <- paste("Delta", 1:length(res$dt_meandir))
+    # Fix names for Delta Ineq Bayes Factors
+    colnames(res$DeltaIneqBayesFactors) <- "BF(dt>0:dt<0)"
+    rownames(res$DeltaIneqBayesFactors) <- paste("Delta", 1:length(res$dt_meandir))
 
 
     if (groupMeanComparisons) {
 
-      res$MuBayesFactors <- cbind(res$MuBayesFactors, 1/res$MuBayesFactors)
-      colnames(res$MuBayesFactors) <- c("BF", "1/BF")
+      res$MuBayesFactors <- cbind(res$MuIneqBayesFactors,
+                                  res$MuSDDBayesFactors)
+      colnames(res$MuBayesFactors) <- c("BF(mu_a>mu_b:mu_a<mu_b)", "BF(mu_a==mu_b:(mu_a, mu_b))")
 
-      ngroup <- length(dichInd)+1
+      ngroup <- sum(dichInd)+1
       basemat <- matrix(1:ngroup, ncol=ngroup, nrow=ngroup)
       first <- t(basemat)[lower.tri(basemat)]
       last <- basemat[lower.tri(basemat, diag=FALSE)]
 
-      rownames(res$MuBayesFactors) <- paste0("[mu_", first, " > mu_", last,"]")
+      rownames(res$MuBayesFactors) <- paste0("[mu_", first, ", mu_", last,"]")
+      names(dimnames(res$MuBayesFactors)) <- c("Comparison", "[mu_a, mu_b]")
     }
   }
+
+  rownames(res$TimeTaken) <- c("Initialization", "Loop", "Post-processing", "Total")
+  colnames(res$TimeTaken) <- "Time (sec)"
+
+
+
 
 
   # Add a class 'circGLM', which will make the defined plot and print methods

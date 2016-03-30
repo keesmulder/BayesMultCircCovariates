@@ -346,6 +346,56 @@ vec computeHDI(vec x, double cip) {
 }
 
 
+// [[Rcpp::export]]
+double estimateDensity(vec x, double x_0, double cip) {
+  // A method to estimate the density of a random variable x (here, often an
+  // MCMC sample) at a value x_0. It uses a 'histogram' solution.
+
+  int n, cil, loc, xidx_lb, xidx_ub;;
+
+  n = x.size();
+
+
+  // cout << endl << "n: " << n;
+
+
+  sort(x.begin(), x.end());
+
+  // The number of values within the
+  // (cip*100)% Confidence Interval
+  cil = trunc(cip*n);
+
+  // Theoretical location of x_0.
+  loc = sum(x < x_0);
+
+  // cout << endl << "loc: " << loc;
+
+  // Upper and lower bounds of x_0' part's theoretical histogram bin.
+  if (loc - cil/2 < 0) {
+    xidx_lb = 0;
+    xidx_ub = cil;
+  } else if (loc + cil/2 > n) {
+    xidx_lb = n - cil - 1;
+    xidx_ub = n - 1;
+  } else {
+    xidx_lb = loc - cil/2;
+    xidx_ub = loc + cil/2;
+  }
+
+  // cout << endl << "LB, UB: " << xidx_lb << "," << xidx_ub << endl;
+
+  double len = x(xidx_ub) - x(xidx_lb);
+
+  double p = cip/len;
+
+  return p;
+}
+
+
+
+
+
+
 
 // [[Rcpp::export]]
 double rhsll(double b0, double kp, vec bt, vec dt,
@@ -397,6 +447,15 @@ vec logProbNormal (vec x, vec mu, vec sd)
     ( pow(x - mu, 2) / (2 * pow(sd, 2) ) );
 }
 
+template <typename T>
+T normal_pdf(T x, T m, T s)
+{
+  static const T inv_sqrt_2pi = 0.3989422804014327;
+  T a = (x - m) / s;
+
+  return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
+}
+
 
 // bwb: Bandwith for the proposal for beta
 // conj_prior: A vector of length 3, containing, in that order, prior mean
@@ -425,7 +484,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
 
   if (debug) std::cout << "--- Start --- " << std::endl << " - Initialize: a, ";
 
-  //  To measure time taken.
+  //  Measure current state of clock for time taken.
   clock_t begin = clock();
 
   double C_psi, S_psi, R_psi, psi_bar, bt_lograt, dt_lograt, etag;
@@ -505,6 +564,9 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
 
   if (debug) std::cout << "g - End Initialize. -" << std::endl;
   if (debug) std::cout << "- J=" << J << ", K=" << K << "- Loop:" << std::endl;
+
+  //  Measure current state of clock for time taken.
+  clock_t init_done = clock();
 
   for (int i = 0; i < Qbylag; i++)
   {
@@ -695,6 +757,8 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
 
   if (debug) std::cout << "End Loop. -" << std::endl << "Gather results: a, ";
 
+  //  Measure current state of clock for time taken.
+  clock_t loop_done = clock();
 
   //////////////////////
   // GATHER ESTIMATES //
@@ -850,11 +914,20 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
 
 
 
+  if (debug) std::cout << endl << endl << "- BFs: - " << endl;
 
-  //// Automatic Bayes Factors for delta's
-  if (debug) std::cout << endl << "BFs:";
+  //// BAYES FACTORS
 
-  vec dtBFs = zeros<vec>(J);
+  // Interval chosen for posterior density estimation.
+  double cip = 1000.0/Q;
+
+  // Prevent crashes for small Q runs. The BFs will be unreliable in this case.
+  if (Q < 1000) cip = .1;
+
+  if (debug) std::cout << "(Delta: ";
+
+  //// Automatic Bayes Factors for delta's.
+  vec dtIneqBFs = zeros<vec>(J);
   vec prop_pos_dts = zeros<vec>(J);
 
   for (int j = 0; j < J; j++) {
@@ -863,40 +936,72 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
     if (debug) std::cout << "(" << prop_pos_dts(j) << ", ";
 
     // This is the fit/complexity Bayes Factor for delta_k > 0 vs. delta_k < 0.
-    dtBFs(j) = prop_pos_dts(j)/(1 - prop_pos_dts(j));
+    dtIneqBFs(j) = prop_pos_dts(j)/(1 - prop_pos_dts(j));
 
-    if (debug) std::cout <<  dtBFs(j) << "), ";
+    if (debug) std::cout <<  dtIneqBFs(j) << "), ";
   }
 
 
+
+
+  if (debug) std::cout << ") " << endl << "(Beta: ";
+
+
+
   //// Automatic Bayes Factors for beta's
-  vec btBFs = zeros<vec>(K);
+  vec btIneqBFs    = zeros<vec>(K);
+  vec btSDDBFs     = zeros<vec>(K);
+  vec btSDDprior   = zeros<vec>(K);
   vec prop_pos_bts = zeros<vec>(K);
 
   for (int k = 0; k < K; k++) {
     prop_pos_bts(k) = ((double) sum(bt_chain.col(k) > 0)) / Q;
 
-    // This is the fit/complexity Bayes Factor for beta_k > 0 vs. beta_k < 0.
-    btBFs(k) = prop_pos_bts(k)/(1 - prop_pos_bts(k));
+    if (debug) std::cout << "(" << prop_pos_bts(k) << ", ";
 
-    if (debug) std::cout <<  dtBFs(k) << "), ";
+    // This is the fit/complexity Bayes Factor for beta_k > 0 vs. beta_k < 0.
+    btIneqBFs(k) = prop_pos_bts(k)/(1 - prop_pos_bts(k));
+
+    if (debug) std::cout <<  btIneqBFs(k) << ", ";
+
+    // Null vs. Alternative Savage-Dickey Density BFs.
+    btSDDprior(k) = normal_pdf((double) 0.0,
+               (double) bt_prior(k, 0),
+               (double) bt_prior(k, 1));
+
+
+    btSDDBFs(k) = estimateDensity(bt_chain.col(k), 0, cip) / btSDDprior(k);
+
+    if (debug) std::cout <<  btSDDBFs(k) << "), ";
   }
 
 
 
-  //// Automatic Bayes Factors for mean comparisons
 
+  if (debug) std::cout << ") " << endl << "(Mu_comp: ";
+
+
+
+
+
+
+
+  //// Automatic Bayes Factors for mean comparisons
   int nmu = J + 1;
 
   // Number of comparisons
   int n_comp = (nmu*nmu - nmu)/2;
 
-  vec muBFs = zeros<vec>(n_comp);
+  vec muIneqBFs    = zeros<vec>(n_comp);
+  vec muSDDBFs = zeros<vec>(n_comp);
   vec prop_lgr = zeros<vec>(n_comp);
+  vec comp_chain = zeros<vec>(Q);
 
   // Create chains containing the means of each group in each iteration.
   mat mu_chain = zeros<mat>(Q, nmu);
   mu_chain.col(0) = b0_chain;
+
+
   for (int mui = 1; mui < nmu; mui++) {
     mu_chain.col(mui) = b0_chain + dt_chain.col(mui-1);
   }
@@ -910,17 +1015,37 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
       for (int mi_last = mi_first + 1; mi_last < nmu; mi_last++) {
 
 
-        if (debug) {std::cout<<endl<<"Comp:"<<mi_first<<","<<mi_last;}
+        if (debug) {cout<<endl<<"Comp:"<<mi_first<<","<<mi_last;}
 
+
+
+        // Inequality Bayes Factors for mu_a > mu_b vs. mu_a < mu_b.
         prop_lgr(comp_i) = ((double) sum(mu_chain.col(mi_first) >
                                            mu_chain.col(mi_last))) / Q;
 
-        muBFs(comp_i) = prop_lgr(comp_i)/(1 - prop_lgr(comp_i));
+        muIneqBFs(comp_i) = prop_lgr(comp_i)/(1 - prop_lgr(comp_i));
+
+        // Null vs. Alternative Savage-Dickey Density BFs.
+
+        // Note that the the prior is chosen by default to be uniform on the
+        // circle. This is defensible and even desired from an empirical Bayes
+        // standpoint, and very easy in the circular case. It is questionable
+        // from a subjective Bayes standpoint: After observing on group to lie
+        // near a specific point, we generally do have some knowledge where the
+        // other groups will lie.
+        comp_chain = mu_chain.col(mi_first) - mu_chain.col(mi_last);
+
+        muSDDBFs(comp_i) = estimateDensity(comp_chain, 0, cip)*2*pi;
 
         comp_i++;
       }
     }
   }
+
+
+
+  if (debug) std::cout << ")" << endl << "Output list. ";
+
 
 
 
@@ -951,16 +1076,17 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   out["zt_mdir"]    = zt_meandir;
   out["zt_CCI"]     = zt_CCI;
 
-  out["th_hat"]     = th_hat;
-
-  out["ll_th_estpars"] = ll_th_estpars;
-  out["ll_th_curpars"] = ll_th_curpars;
 
   out["lppd"]       = lppd;
   out["n_par"]      = n_par;
 
+  out["ll_th_estpars"] = ll_th_estpars;
 
-  if (returnPostSample) { out["ll_each_th_curpars"] = ll_each_th_curpars; }
+  if (returnPostSample) {
+    out["ll_each_th_curpars"] = ll_each_th_curpars;
+    out["ll_th_curpars"]      = ll_th_curpars;
+    out["th_hat"]             = th_hat;
+  }
 
   out["AIC_Bayes"]        = AIC_Bayes;
 
@@ -975,16 +1101,17 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   out["WAIC2"]      = WAIC2;
 
   // out["prop_pos_dts"] = prop_pos_dts;
-  out["DeltaBayesFactors"] = dtBFs;
-  out["BetaBayesFactors"]  = btBFs;
-  if (groupMeanComparisons) {out["MuBayesFactors"] = muBFs;}
+  out["DeltaIneqBayesFactors"] = dtIneqBFs;
+  out["BetaIneqBayesFactors"]  = btIneqBFs;
+  out["BetaSDDBayesFactors"]  = btSDDBFs;
+  if (groupMeanComparisons) {
+    out["MuIneqBayesFactors"] = muIneqBFs;
+    out["MuSDDBayesFactors"] = muSDDBFs;
+  }
 
   out["SavedIts"]   = Rcpp::wrap(Q);
   out["TotalIts"]   = Rcpp::wrap(Qbylag);
 
-  // Save the time taken.
-  clock_t end = clock();
-  out["TimeTaken"] = double(end - begin) / CLOCKS_PER_SEC;
 
   if (debug) std::cout << ", h. ";
 
@@ -1002,6 +1129,18 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   }
 
   if (debug) std::cout << "End Gather -" << std::endl << std::endl;
+
+
+  // Save the time taken.
+  clock_t end = clock();
+
+  vec time_taken = zeros<vec>(4);
+  time_taken(0) = double(init_done - begin) / CLOCKS_PER_SEC;
+  time_taken(1) = double(loop_done - init_done) / CLOCKS_PER_SEC;
+  time_taken(2) = double(end - loop_done) / CLOCKS_PER_SEC;
+  time_taken(3) = double(end - begin) / CLOCKS_PER_SEC;
+
+  out["TimeTaken"] = time_taken;
 
   return out;
 }

@@ -69,13 +69,13 @@ generateCircGLMData <- function(n=30, residkappa=5, nconpred=2, ncatpred=2,
 
 
 # Generate circular outcome GLM datasets, and save them to disk.
-saveCircGLMDatasets <- function (truens, truekps, truebts,
+saveCircGLMDatasets <- function (truens, truekps, truepreds,
                                  truebeta0 = pi/2, nsim = 100, seed = 139738) {
 
   set.seed(seed)
 
   # All designs we want to generate data for.
-  designs <- expand.grid(n=truens, kp=truekps, bt=truebts,
+  designs <- expand.grid(n=truens, kp=truekps, pred=truepreds,
                          stringsAsFactors=FALSE)
 
   alreadyExistingCounter <- 0
@@ -87,17 +87,17 @@ saveCircGLMDatasets <- function (truens, truekps, truebts,
 
     # The amount of categorical and continuous predictors is passed as the names
     # of each set of betas.
-    curbttype <- strsplit(names(curDesign$bt), split = "")[[1]]
-    ncatpred <- sum(curbttype == "c")
-    nconpred <- sum(curbttype == "l")
+    curpredtype <- strsplit(names(curDesign$pred), split = "")[[1]]
+    ncatpred <- sum(curpredtype == "c")
+    nconpred <- sum(curpredtype == "l")
 
     # Directory for placing the datasets.
     saveDirName       <- paste0(getwd(),
                                 "/Data/Datasets/",
-                                "n=",         curDesign$n,
-                                "_kp=",       curDesign$kp,
-                                "_bt=",       curDesign$bt,
-                                "_bttype=",   paste0(names(curDesign$bt)))
+                                "n=",           curDesign$n,
+                                "_kp=",         curDesign$kp,
+                                "_pred=",       curDesign$pred,
+                                "_predtype=",   paste0(names(curDesign$pred)))
 
     # Create a folder for the datasets
     dir.create(saveDirName, showWarnings=FALSE)
@@ -113,7 +113,8 @@ saveCircGLMDatasets <- function (truens, truekps, truebts,
         # Actually generate the data.
         d <- generateCircGLMData(n = curDesign$n,
                                  residkappa = curDesign$kp,
-                                 truebeta   = curDesign$bt[[1]],
+                                 truebeta   = curDesign$pred[[1]][curpredtype=="l"],
+                                 truedelta  = curDesign$pred[[1]][curpredtype=="c"],
                                  truebeta0  = pi/2,
                                  nconpred   = nconpred,
                                  ncatpred   = ncatpred)
