@@ -355,6 +355,7 @@ double estimateDensity(vec x, double x_0, double cip) {
 
   n = x.size();
 
+  double p;
 
   // cout << endl << "n: " << n;
 
@@ -363,30 +364,38 @@ double estimateDensity(vec x, double x_0, double cip) {
 
   // The number of values within the
   // (cip*100)% Confidence Interval
-  cil = trunc(cip*n);
+  cil = trunc(cip*n/2.0)*2;
+
 
   // Theoretical location of x_0.
   loc = sum(x < x_0);
 
   // cout << endl << "loc: " << loc;
+  // cout << endl << "cil: " << cil << endl;
 
   // Upper and lower bounds of x_0' part's theoretical histogram bin.
   if (loc - cil/2 < 0) {
     xidx_lb = 0;
-    xidx_ub = cil;
+    xidx_ub = cil - 1;
   } else if (loc + cil/2 > n) {
-    xidx_lb = n - cil - 1;
+    xidx_lb = n - cil;
     xidx_ub = n - 1;
   } else {
     xidx_lb = loc - cil/2;
-    xidx_ub = loc + cil/2;
+    xidx_ub = loc + cil/2 - 1;
   }
 
   // cout << endl << "LB, UB: " << xidx_lb << "," << xidx_ub << endl;
 
   double len = x(xidx_ub) - x(xidx_lb);
 
-  double p = cip/len;
+  // cout << endl << "xLB, xUB: " << x(xidx_lb) << "," << x(xidx_ub) << endl;
+
+  if (len > 0) {
+    p = cip/len;
+  } else {
+    p = 0;
+  }
 
   return p;
 }
@@ -454,6 +463,31 @@ T normal_pdf(T x, T m, T s)
   T a = (x - m) / s;
 
   return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
+}
+
+
+// Compute a fit/complexity Bayes Factor of a hypothesis, given the proportion p
+// of the MCMC sample in which the hypothesis holds, and the size of the sample
+// Q. Returns the BF, or its upper or lower bound, if p = 0 or p = 1.
+double computeIneqBF(double p, int Q) {
+
+  double BF = 0;
+
+  if (p == 0) {
+    // If the hypothesis never holds, the BF is estimated to be at most 1/Q,
+    // which would be the BF if a single iteration did follow the hypothesis.
+    BF = 1.0/Q;
+  } else if (p == 1) {
+    // If the hypothesis always holds, the BF is estimated to be at least 1/Q,
+    // which would be the BF if a single iteration didn't follow the hypothesis.
+    BF = (double) Q;
+
+  } else {
+    // This is the standard fit/complexity Bayes Factor for H vs. not H.
+   BF = p/(1-p);
+  }
+
+  return BF;
 }
 
 
@@ -919,10 +953,16 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   //// BAYES FACTORS
 
   // Interval chosen for posterior density estimation.
-  double cip = 1000.0/Q;
+  double cip;
 
-  // Prevent crashes for small Q runs. The BFs will be unreliable in this case.
-  if (Q < 1000) cip = .1;
+  // Prevent crashes for small Q runs by setting cip to .1. cip is the
+  // percentage of the sample that will be within the estimateDensity subset.
+  // The BFs will likely be unreliable if Q < 1000.
+  if (Q < 1000) {
+    cip = .1;
+  } else {
+    cip = 1000.0/Q;
+  }
 
   if (debug) std::cout << "(Delta: ";
 
@@ -936,7 +976,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
     if (debug) std::cout << "(" << prop_pos_dts(j) << ", ";
 
     // This is the fit/complexity Bayes Factor for delta_k > 0 vs. delta_k < 0.
-    dtIneqBFs(j) = prop_pos_dts(j)/(1 - prop_pos_dts(j));
+    dtIneqBFs(j) = computeIneqBF(prop_pos_dts(j), Q);
 
     if (debug) std::cout <<  dtIneqBFs(j) << "), ";
   }
@@ -953,14 +993,14 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   vec btSDDBFs     = zeros<vec>(K);
   vec btSDDprior   = zeros<vec>(K);
   vec prop_pos_bts = zeros<vec>(K);
+  double curDens   = 0;
 
   for (int k = 0; k < K; k++) {
     prop_pos_bts(k) = ((double) sum(bt_chain.col(k) > 0)) / Q;
 
     if (debug) std::cout << "(" << prop_pos_bts(k) << ", ";
 
-    // This is the fit/complexity Bayes Factor for beta_k > 0 vs. beta_k < 0.
-    btIneqBFs(k) = prop_pos_bts(k)/(1 - prop_pos_bts(k));
+    btIneqBFs(k) = computeIneqBF(prop_pos_bts(k), Q);
 
     if (debug) std::cout <<  btIneqBFs(k) << ", ";
 
@@ -969,8 +1009,13 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
                (double) bt_prior(k, 0),
                (double) bt_prior(k, 1));
 
+    if (debug) std::cout << btSDDprior(k) << ", ";
 
-    btSDDBFs(k) = estimateDensity(bt_chain.col(k), 0, cip) / btSDDprior(k);
+    curDens = estimateDensity(bt_chain.col(k), 0, cip);
+
+    if (debug) std::cout <<  curDens << ", ";
+
+    btSDDBFs(k) = curDens / btSDDprior(k);
 
     if (debug) std::cout <<  btSDDBFs(k) << "), ";
   }
@@ -1023,7 +1068,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
         prop_lgr(comp_i) = ((double) sum(mu_chain.col(mi_first) >
                                            mu_chain.col(mi_last))) / Q;
 
-        muIneqBFs(comp_i) = prop_lgr(comp_i)/(1 - prop_lgr(comp_i));
+        muIneqBFs(comp_i) = computeIneqBF(prop_lgr(comp_i), Q);
 
         // Null vs. Alternative Savage-Dickey Density BFs.
 

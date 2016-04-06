@@ -119,7 +119,7 @@ This model specification differs from the usual approach to circular regression 
 <<nonparallel>>=
 n <- 100
 truedelta <- 2; truebeta <- .4; truekappa <- 20
-dat <- as.data.frame(generateCircGLMData(n=n, nconpred = 1, ncatpred = 1,
+dat <- as.data.frame(generateCircGLMData(n=n, nconpred = 1, ncatpred = 1, truebeta0 = 0,
                                          truedelta = truedelta, truebeta = truebeta,
                                          residkappa = truekappa))
 
@@ -133,7 +133,10 @@ plot.predict.circGLM(res1, groupingInBeta = TRUE)
 <<parallel>>=
 res2 <- circGLM(th = dat$th, X = dat[,-1], returnPostSample = FALSE)
 
-plot.predict.circGLM(res2)
+
+pdf("ExampleCircularLinearPlot.pdf")
+plot.predict.circGLM(res2, xlab = "Predictor X", ylab = "Circular Outcome")
+dev.off()
 @
 \caption{$\mu_i = \beta_0  + \delta d_i + g(\beta x_i)$}
 \end{subfigure}

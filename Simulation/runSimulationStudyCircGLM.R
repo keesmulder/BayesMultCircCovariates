@@ -33,7 +33,7 @@ pg <- expand.grid(n=npreds, pred=truepred, type=type)
 
 pl <- makePredList(pg)
 
-nsim <- 1000
+nsim <- 10
 
 # Save the datasets as .csv files.
 saveCircGLMDatasets(truens = truens, truekps = truekps, truepreds = pl,
@@ -41,11 +41,11 @@ saveCircGLMDatasets(truens = truens, truekps = truekps, truepreds = pl,
 
 # General MCMC parameters.
 mcmcpar=list(conj_prior = rep(0, 3),
-             Q=20000, burnin = 1000, lag = 1,
+             Q=200, burnin = 1000, lag = 1,
              kappaModeEstBandwith=.05, CIsize=.95,
              r=2, reparametrize=TRUE)
 
-# Generate the designs for Beta
+# Generate the designs for predictors
 predDesigns <- lapply(1:nrow(pg), function(i){
   c(pl[i],
     list(starting_values=c(0, 1, rep(0, pg$n[i])),
@@ -55,12 +55,12 @@ predDesigns <- lapply(1:nrow(pg), function(i){
 })
 
 # Run the simulation study.
-simres <- simStudyCircGLM(nsim = nsim,
+simres <- simStudyCircGLM(nsim = nsim, saveLoadEachDgn = FALSE,
                        truens = truens, truekps = truekps,
                        predDesigns = predDesigns, overwrite=TRUE,
-                       seed = 389238, mcmcpar = mcmcpar)
+                       seed = 38938, mcmcpar = mcmcpar)
 
-
+options(max.print = 100)
 
 
 

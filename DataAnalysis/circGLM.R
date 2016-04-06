@@ -180,12 +180,12 @@ fixResultNames <- function(nms){
 }
 
 # Plot the plot with the first predictor and the first grouping.
-predict.plot.circGLM <- function(m, groupingInBeta = FALSE) {
+predict.plot.circGLM <- function(m, groupingInBeta = FALSE, ...) {
 
   if(groupingInBeta) m$data_d <- m$data_stX[,2, drop=FALSE]
 
   plot(m$data_stX[, 1], m$data_th, pch = 16,
-       ylim = c(-0.3, 2*pi+0.3), col = rgb(m$data_d[, 1], 0, 0, 0.6))
+       ylim = c(-0.3, 2*pi+0.3), col = rgb(m$data_d[, 1], 0, 0, 0.6), ...)
 
   xmin <- min(m$data_stX)
   xmax <- max(m$data_stX)
