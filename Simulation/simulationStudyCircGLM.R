@@ -3,9 +3,7 @@ source("DataAnalysis/circGLM.R")
 
 library(circular)
 library(dplyr)
-library(foreach)
-library(parallel)
-library(doParallel)
+
 
 
 # Method for printing simulation results.
@@ -16,10 +14,7 @@ print.cGLMSim <- function(res, header=TRUE, digits=2,
   options(digits=digits)
 
   if (selection == 'default') {
-    selcols <- list('n', 'kp',
-                    'b0_meandir', 'b0_in_CCI',
-                    'kp_mean', 'kp_mode', 'kp_in_HDI',
-                    'crashed')
+
   }
 
   resdes <- attr(res, 'args')
@@ -41,6 +36,8 @@ print.cGLMSim <- function(res, header=TRUE, digits=2,
   for (i in 1:length(res)) {
     cat("\n(", i, ") predDesign: ",
         gsub('c\\(', "(", names(res)[i]), "\n", sep = "")
+
+    # Choose the right columns to use.
     if (selection == "all"){
       print(res[[i]])
     } else if (selection == 'automatic') {
@@ -56,12 +53,17 @@ print.cGLMSim <- function(res, header=TRUE, digits=2,
                     'kp_mean', 'kp_mode', 'kp_in_HDI',
                     btcols, dtcols,
                     'crashed')
-
-
-      print(do.call(select_, c(list(res[[i]]), .dots = list(selcols))))
     } else if (selection == 'default') {
-      print(do.call(select_, c(list(res[[i]]), .dots = list(selcols))))
+      selcols <- list('n', 'kp',
+                      'b0_meandir', 'b0_in_CCI',
+                      'kp_mean', 'kp_mode', 'kp_in_HDI',
+                      'crashed')
+    } else {
+      selcols <- selection[selection %in% names(res[[i]])]
     }
+
+    # Print the results of this sim study result.
+    print(do.call(select_, c(list(res[[i]]), .dots = list(selcols))))
   }
   options(digits=oldDgt)
 }
@@ -95,7 +97,7 @@ angleInCircInterval <- function (th, CI) {
 # dataFilename is a string denoting where on disk the dataset to be analyzed is.
 # params are the parameters to pass to the circGLM analysis function.
 runCircGLMSamplerOnce <- function(dataFilename, params,
-                                  curTrueBts, curTrueDts) {
+                                  curTrueBts, curTrueDts, curTrueKp) {
 
   d  <- read.table(dataFilename, sep=",")
   th <- as.matrix(d[, 1,  drop=FALSE])
@@ -122,10 +124,10 @@ runCircGLMSamplerOnce <- function(dataFilename, params,
 
 
     #### KAPPA ####
-    kp_res <- c("kp_mean_bias" = curSimRes[['kp_mean']] - curDesign$kp,
-                "kp_mode_bias" = curSimRes[['kp_mode']] - curDesign$kp,
-                "kp_in_HDI"    = curDesign$kp > curSimRes[['kp_HDI_LB']] &
-                  curDesign$kp < curSimRes[['kp_HDI_UB']])
+    kp_res <- c("kp_mean_bias" = curSimRes[['kp_mean']] - curTrueKp,
+                "kp_mode_bias" = curSimRes[['kp_mode']] - curTrueKp,
+                "kp_in_HDI"    = curTrueKp > curSimRes[['kp_HDI_LB']] &
+                  curTrueKp < curSimRes[['kp_HDI_UB']])
     ###############
 
 
@@ -240,7 +242,6 @@ runCircGLMSamplerOnce <- function(dataFilename, params,
 }
 
 
-# returns is a character vector of regular expressions which will match
 simStudyCircGLM <- function(truens, truekps, predDesigns,
                             nsim = 100,
                             saveResults=TRUE, overwrite = TRUE,
@@ -253,19 +254,15 @@ simStudyCircGLM <- function(truens, truekps, predDesigns,
                                          kappaModeEstBandwith=.05,
                                          CIsize=.95,
                                          r=2,
-                                         reparametrize = TRUE),
-                            returns = c()) {
+                                         betaMHCorrection=TRUE,
+                                         reparametrize = TRUE)) {
 
-
-  # Register a parallel computing cluster.
-  cl <- makeCluster(detectCores() - 1)
-  registerDoParallel(cl)
 
 
   set.seed(seed)
 
   # Set those values to list that may have been provided by themselves.
-  if(!is.list(predDesigns[[1]])) predDesigns %<>% list
+  if(!is.list(predDesigns[[1]])) predDesigns <- list(predDesigns)
 
   # The directory containing the datasets.
   datasetsDir <- paste0(getwd(), "/Data/Datasets/")
@@ -298,7 +295,9 @@ simStudyCircGLM <- function(truens, truekps, predDesigns,
   print(simFilePath)
 
   if(file.exists(simFilePath)&saveResults) {
-    cat("\n ------ \nSimulation file:\n\n", simFileName, "\n\nalready existed. ")
+    cat("\n ------ \nSimulation file:\n\n",
+        paste0(baseName, designInFileName),
+        "\n\nalready existed. ")
     if (!overwrite) {
       cat("Returning previous file.\n ------ ")
       load(simFilePath)
@@ -398,7 +397,9 @@ simStudyCircGLM <- function(truens, truekps, predDesigns,
           # Run the sampler, obtain results on average and coverage
           curSimRes <- runCircGLMSamplerOnce(dataFilename = readFileName,
                                              params = curPar,
-                                             curTrueBts, curTrueDts)
+                                             curTrueBts,
+                                             curTrueDts,
+                                             curDesign$kp)
 
 
           curDgnResList[[isim]] <- curSimRes
@@ -434,6 +435,7 @@ simStudyCircGLM <- function(truens, truekps, predDesigns,
           curDgnRes <- t(as.data.frame(curDgnResList))
           rownames(curDgnRes) <- 1:nsim
 
+        # With some errors, we should fix the errors
         } else if (any(curDgnResLens == 1) & !all(curDgnResLens == 1)) {
 
           curDgnRes <- matrix(NA, nrow=nsim, ncol=max(curDgnResLens))
@@ -485,14 +487,15 @@ simStudyCircGLM <- function(truens, truekps, predDesigns,
       # Indices of the columns for which we must take the circular mean.
       circIdx <- which(colnames(curDgnRes) %in% c("b0_meandir", "b0_bias"))
 
+      summaryThisDesignRes <- sapply(1:ncol(curDgnRes), function(i){
+        if (i %in% circIdx) {
+          computeMeanDirection(curDgnRes[, i])
+        } else {
+          mean(curDgnRes[, i])
+        }
+      })
 
-      # Unless we are saving information from every simulation, we summarize the
-      # results over 1:nsim results which are in curDgnRes.
-      summaryThisDesignRes <- c("b0_meandir" =
-                                  computeMeanDirection(na.omit(curDgnRes[, "b0_meandir"])),
-                                "b0_bias" =
-                                  computeMeanDirection(na.omit(curDgnRes[, "b0_bias"])),
-                                apply(curDgnRes[, -circIdx], 2, mean, na.rm=TRUE))
+      names(summaryThisDesignRes) <- colnames(curDgnRes)
 
       # For the full output, we place the full results into the large array.
       thisPredDesFullArray[, , as.character(curDesign$n),
@@ -519,10 +522,6 @@ simStudyCircGLM <- function(truens, truekps, predDesigns,
   } # End of predDesigns loop.
 
 
-
-
-  # Stop the parallel cluster
-  stopCluster(cl)
 
   class(simStudyResults) <- c("cGLMSim", class(simStudyResults))
   attr(simStudyResults, 'call') <- match.call()

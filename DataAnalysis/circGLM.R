@@ -1,6 +1,9 @@
 library(Rcpp)
 library(dplyr)
-sourceCpp('DataAnalysis/circGLM.cpp')
+library(ggplot2)
+library(reshape2)
+
+sourceCpp('C:/Dropbox/Research/BayesMultCircCovariates/DataAnalysis/circGLM.cpp')
 
 logBesselI <- function(nu, x) log(besselI(x, nu, expon.scaled = TRUE)) + x
 
@@ -39,60 +42,109 @@ is.dichotomous <- function(x) {
 }
 
 # Coef is beta or zeta depending on which should be used.
-plot.circGLM <- function(m, tasp=1, coef="Beta") {
+plot.circGLM <- function(m,
+                         type = "grid",
+                         # gg = TRUE,
+                         tasp=1,
+                         coef="Beta",
+                         labelFormat = "default",
+                         ggTheme = theme_bw(),
+                         res = 5000) {
 
-  if (is.null(m$b0_chain)) {
-    warning("No posterior sample saved for this result.")
+
+
+  if (is.null(m$b0_chain)) stop("No posterior sample saved for this result.")
+
+  if (coef == "Beta") {
+    pd_chain <- m$bt_chain
+  } else if (coef == "Zeta") {
+    pd_chain <- m$zt_chain
   } else {
+    stop("Coef type not found")
+  }
+
+  ndt <- ncol(m$dt_chain)
+  npd <- ncol(pd_chain)
+
+  # Create labels
+  if (labelFormat == "default") {
+    yLabB0    <- "Beta_0"
+    yLabKp    <- "Kappa"
+    yLabDt    <- if(ndt > 0) {paste("Delta", 1:ndt)} else {NULL}
+    yLabPd    <- if(npd > 0) {paste(coef, 1:npd)   } else {NULL}
+  } else if (labelFormat == "latex") {
+    yLabB0    <- "$\\beta_0$"
+    yLabKp    <- "$\\kappa$"
+    yLabDt    <- if(ndt > 0) {paste0("$\\delta_", 1:ndt, "$")             } else {NULL}
+    yLabPd    <- if(npd > 0) {paste0("\\", tolower(coef), "_", 1:npd, "$")} else {NULL}
+  } else {
+    stop("Unknown label format.")
+  }
+
+  allChains <- cbind(m$b0_chain, m$kp_chain, m$dt_chain, pd_chain)
+  yLabs     <- c(yLabB0, yLabKp, yLabDt, yLabPd)
+  colnames(allChains) <- yLabs
+  mainLabs  <- paste(yLabs, "chain")
+
+  nPlots <- ncol(allChains)
+
+  # Chain length
+  Q <- m$SavedIts
+
+  # Strip values if necessary, because plotting is slow with too many values.
+  if (Q > res) {
+    # Take only res values to keep plotting fast.
+    idx <- round(seq(1, Q, Q/res))
+    allChains <- allChains[idx, ]
+  } else {
+    idx <- 1:Q
+  }
 
 
-    if (coef == "Beta") {
-      coef_chain <- m$bt_chain
-    } else if (coef == "Zeta") {
-      coef_chain <- m$zt_chain
-    } else {
-      stop("Coef type not found")
-    }
+
+  # Grid-based plot
+  if (type == "grid") {
+
+
+    # Save old pars.
+    old.par <- par()
 
     # Find nice dimensions of the grid of plots.
-    npanel <- min(ncol(m$bt_chain)+ncol(m$dt_chain)+2, 16)
+    npanel <- min(nPlots, 16)
     mfr <- findPlotGridForm(npanel, tasp)
-    old.par <- par(mfrow = mfr, mar=c(2.5,4,2,1))
 
-    # If the chain is reasonably small, plot the whole chain.
-    if (m$SavedIts < 5000) {
-      plot.ts(m$b0_chain, xlab="Iteration", ylab="Beta_0", main="Beta_0 chain")
-      plot.ts(m$kp_chain, xlab="Iteration", ylab="Kappa", main="Kappa chain")
-      apply(coef_chain, 2, plot.ts,
-            xlab="Iteration", ylab=coef, main=paste(coef, "chain"))
+    par(mfrow = mfr)
 
-      apply(m$dt_chain, 2, plot.ts,
-            xlab="Iteration", ylab="Delta", main="Delta chain")
+    for (i in 1:nPlots) {
+      plot.ts(x = idx, y = allChains[, i],
+              xy.lines = TRUE, pch = NA,
+              ylab=yLabs[i], main=mainLabs[i])
 
-      # Otherwise plot only 5000 values, otherwise the plotting will be too slow.
-    } else {
-      idx <- round(seq(1, m$SavedIts, m$SavedIts/5000))
-      plot.ts(x=idx, y=m$b0_chain[idx], xy.lines=TRUE,
-              xlab="Iteration", ylab="Beta_0", pch=NA, main="Beta_0 chain")
-      plot.ts(x=idx, y=m$kp_chain[idx], xy.lines=TRUE,
-              xlab="Iteration", ylab="Kappa", pch=NA, main="Kappa chain")
-
-      if (ncol(coef_chain) > 0) {
-        apply(coef_chain[idx, , drop=FALSE], 2,
-              function(cfchn) plot.ts(x=idx, y=cfchn, xy.lines=TRUE,
-                                      xlab="Iteration", ylab=coef,
-                                      main=paste(coef, "chain"), pch=NA))
-      }
-
-      if (ncol(m$dt_chain) > 0) {
-        apply(m$dt_chain[idx, , drop=FALSE], 2,
-              function(cfchn) plot.ts(x=idx, y=cfchn, xy.lines=TRUE,
-                                      xlab="Iteration", ylab="Delta",
-                                      main="Delta chain", pch=NA))
-      }
     }
+
     par(old.par)
+
+  } else if (type == "stack") {
+
+    # Stack chains on top of each other.
+    longChains <- melt(allChains, varnames = c("idx", "iPar"))
+    longChains[, "idx"] <- idx
+
+    p <- ggplot(data = longChains, mapping = aes(x = idx, y = value, group = iPar)) +
+      geom_line(col = rgb(0, 0, 0, .9)) +
+      xlab("Iteration") + ylab("") +
+      ggTheme +
+      coord_cartesian(xlim = c(0, Q), expand=FALSE) +
+      facet_grid(iPar ~ ., scales = "free")
+
+    return(p)
+
+  } else {
+    stop("type not found")
   }
+
+
+
 
 }
 
@@ -103,8 +155,6 @@ print.circGLM <- function(m, printChains=FALSE) {
   # Remove empty results (ie. parameters not in current model)
   empties <- lapply(m, length) == 0
   if(any(empties)) m <- m[-which(empties)]
-
-
 
   # Gather single results
   singles <- lapply(m, length) == 1
@@ -180,12 +230,14 @@ fixResultNames <- function(nms){
 }
 
 # Plot the plot with the first predictor and the first grouping.
-predict.plot.circGLM <- function(m, groupingInBeta = FALSE, ...) {
+predict.plot.circGLM <- function(m, groupingInBeta = FALSE,
+                                 ymin = 0, ymax = 2*pi, yxpand = .3,
+                                 xlab = "x", ylab = expression(theta), ...) {
 
   if(groupingInBeta) m$data_d <- m$data_stX[,2, drop=FALSE]
 
-  plot(m$data_stX[, 1], m$data_th, pch = 16,
-       ylim = c(-0.3, 2*pi+0.3), col = rgb(m$data_d[, 1], 0, 0, 0.6), ...)
+  plot(m$data_stX[, 1], m$data_th, pch = 16, xlab = xlab, ylab = ylab,
+       ylim = c(ymin - yxpand, ymax + yxpand), col = rgb(m$data_d[, 1], 0, 0, 0.6), ...)
 
   xmin <- min(m$data_stX)
   xmax <- max(m$data_stX)
@@ -215,7 +267,8 @@ predict.plot.circGLM <- function(m, groupingInBeta = FALSE, ...) {
 plot.predict.circGLM <- predict.plot.circGLM
 
 
-circGLM <- function(th, X,
+circGLM <- function(th,
+                    X = matrix(nrow = length(th), ncol = 0),
                     conj_prior = rep(0, 3),
                     bt_prior_musd = c("mu"=0, "sd"=1),
                     starting_values = c(0, 1, rep(0, ncol(X))),
@@ -233,7 +286,9 @@ circGLM <- function(th, X,
                     debug = FALSE,
                     loopDebug = FALSE,
                     groupMeanComparisons=TRUE,
-                    skipDichSplit = FALSE) {
+                    betaMHCorrection=TRUE,
+                    skipDichSplit = FALSE,
+                    centerOnly = FALSE) {
 
   # Check if the inputs are matrices.
   if (!is.matrix(th)) th <- as.matrix(th)
@@ -253,13 +308,13 @@ circGLM <- function(th, X,
   if (!skipDichSplit) {
 
     # Standardize continuous predictors.
-    stX <- scale(X[, !dichInd, drop=FALSE])
+    stX <- scale(X[, !dichInd, drop=FALSE], scale = !centerOnly)
 
     d <- X[, dichInd, drop=FALSE]
 
   } else {
     # Standardize continuous predictors.
-    stX <- cbind(scale(X[, !dichInd, drop=FALSE]), X[, dichInd, drop=FALSE])
+    stX <- cbind(scale(X[, !dichInd, drop=FALSE], scale = !centerOnly), X[, dichInd, drop=FALSE])
 
     d <- matrix(nrow=nrow(X), ncol=0)
   }
@@ -280,7 +335,10 @@ circGLM <- function(th, X,
                   Q=Q, r=r,
                   returnPostSample=returnPostSample,
                   bt_prior_type=bt_prior_type,
-                  reparametrize=reparametrize, debug=debug, loopDebug=loopDebug,
+                  reparametrize=reparametrize,
+                  debug=debug,
+                  loopDebug=loopDebug,
+                  betaMHCorrection=betaMHCorrection,
                   groupMeanComparisons=groupMeanComparisons)
 
 

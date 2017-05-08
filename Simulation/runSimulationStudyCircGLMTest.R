@@ -23,13 +23,13 @@ makePredList <- function(pg) {
 
 
 # Properties of the simulation study.
-truens  <- c(20, 50, 100)
-truekps <- c(2, 5,  20)
+truens  <- c(20, 100)
+truekps <- c(2, 20)
 # truebeta0 is always pi/2 because it should be irrelevant.
 
-npreds   <- c(1, 2, 5)
+npreds   <- c(1, 5)
 truepred <- c(.04, -0.15)
-type     <- c("l", "anc", "c")
+type     <- c("l", "c")
 
 pg <- expand.grid(n=npreds, pred=truepred, type=type)
 
@@ -57,10 +57,10 @@ predDesigns <- lapply(1:nrow(pg), function(i){
 })
 
 # Run the simulation study.
-simres <- simStudyCircGLM(nsim = nsim, saveLoadEachDgn = TRUE,
+simres <- simStudyCircGLM(nsim = nsim, saveLoadEachDgn = FALSE,
                        truens = truens, truekps = truekps,
                        predDesigns = predDesigns, overwrite=FALSE,
-                       seed = 38938, mcmcpar = mcmcpar)
+                       seed = 3893322, mcmcpar = mcmcpar)
 
 
 
@@ -69,7 +69,6 @@ simres <- simStudyCircGLM(nsim = nsim, saveLoadEachDgn = TRUE,
 
 
 
-attr(simres[[1]], "full")
 
 
 

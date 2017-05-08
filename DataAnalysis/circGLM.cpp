@@ -6,10 +6,6 @@
 # Kees Tim Mulder
 #
 #
-
- TODO
- Check if quantiles are obtained properly.
-
 #
 # This work was supported by a Vidi grant awarded to I. Klugkist from the
 # Dutch Organization for Scientific research (NWO 452-12-010).
@@ -465,6 +461,24 @@ T normal_pdf(T x, T m, T s)
   return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
 }
 
+// [[Rcpp::export]]
+double truncCauchyPdf(double x, double m, double w)
+{
+  double LB = (m + tan( - pi * w / 2)) / (1 - m * tan(- pi * w / 2));
+  double UB = (m + tan(   pi * w / 2)) / (1 - m * tan(  pi * w / 2));
+  if (LB > UB) {
+    double tempB = LB;
+    LB    = UB;
+    UB    = tempB;
+  }
+
+  if (x < LB || x > UB) {
+    return 0.0;
+  } else {
+    return 1 / (w * pi * (1 + x * x));
+  }
+}
+
 
 // Compute a fit/complexity Bayes Factor of a hypothesis, given the proportion p
 // of the MCMC sample in which the hypothesis holds, and the size of the sample
@@ -513,6 +527,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
                     int Q, double r, bool returnPostSample,
                     int bt_prior_type, bool reparametrize,
                     bool debug, bool loopDebug,
+                    bool betaMHCorrection,
                     bool groupMeanComparisons) {
 
 
@@ -572,6 +587,11 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
 
   double bt_cur_prior = 0;
   double bt_can_prior = 0;
+
+  // Probabily to move from the current to the candidate (and vice versa) for
+  // beta, used in the MH ratio.
+  double prob_bt_can_to_cur = 0;
+  double prob_bt_cur_to_can = 0;
 
   if (debug) std::cout << "d, ";
 
@@ -707,6 +727,11 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
         bt_can(k) += runif(1, -bwb(k), bwb(k))[0];
         if (loopDebug & (i==0)) std::cout << "2a";
       } else {
+
+        // Find the current value for zt_can given the current bt_can/bt_cur.
+        zt_can(k) = atanLFdouble(bt_can(k), 1/piOver2);
+
+        // The new candidate is a random walk.
         zt_can(k) += runif(1, -bwb(k), bwb(k))[0];
 
         if (loopDebug & (i==0)) std::cout << "2b";
@@ -727,8 +752,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
       if (loopDebug & (i==0)) std::cout << "3";
 
       // Set the priors for bt constant prior or normal prior.
-      if (bt_prior_type == 1)
-      {
+      if (bt_prior_type == 1) {
         bt_can_prior = arma::sum(logProbNormal(bt_can,
                                                bt_prior.col(0),
                                                bt_prior.col(1)));
@@ -737,10 +761,24 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
                                                bt_prior.col(1)));
       }
 
+      if (betaMHCorrection) {
+        prob_bt_can_to_cur = log(truncCauchyPdf(bt_cur(k),
+                                                   bt_can(k),
+                                                   bwb(k)));
+        prob_bt_cur_to_can = log(truncCauchyPdf(bt_can(k),
+                                                   bt_cur(k),
+                                                   bwb(k)));
+      }
+
       if (loopDebug & (i==0)) std::cout << "4";
 
-      bt_lograt = rhsll(b0_cur, kp_cur, bt_can, dt_cur, th, X, D, r) + bt_can_prior -
-        rhsll(b0_cur, kp_cur, bt_cur, dt_cur, th, X, D, r) - bt_cur_prior;
+      bt_lograt =
+        rhsll(b0_cur, kp_cur, bt_can, dt_cur, th, X, D, r) +
+        bt_can_prior +
+        prob_bt_can_to_cur -
+        rhsll(b0_cur, kp_cur, bt_cur, dt_cur, th, X, D, r) -
+        bt_cur_prior -
+        prob_bt_cur_to_can;
 
       // Accept the candidate according to the MH-ratio.
       if (bt_lograt > log(runif(1, 0, 1)[0]))
@@ -1075,9 +1113,9 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
         // Note that the the prior is chosen by default to be uniform on the
         // circle. This is defensible and even desired from an empirical Bayes
         // standpoint, and very easy in the circular case. It is questionable
-        // from a subjective Bayes standpoint: After observing on group to lie
+        // from a subjective Bayes standpoint: After observing one group to lie
         // near a specific point, we generally do have some knowledge where the
-        // other groups will lie.
+        // other groups will lie: usually it will lie close to the other.
         comp_chain = mu_chain.col(mi_first) - mu_chain.col(mi_last);
 
         muSDDBFs(comp_i) = estimateDensity(comp_chain, 0, cip)*2*pi;

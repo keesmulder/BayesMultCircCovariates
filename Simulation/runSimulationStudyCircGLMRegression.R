@@ -23,19 +23,19 @@ makePredList <- function(pg) {
 
 
 # Properties of the simulation study.
-truens  <- c(20, 50, 100)
-truekps <- c(2, 5,  20)
+truens  <- c(20, 100)
+truekps <- c(2, 20)
 # truebeta0 is always pi/2 because it should be irrelevant.
 
-npreds   <- c(1, 2, 5)
-truepred <- c(.04, -0.15)
-type     <- c("l", "anc", "c")
+npreds   <- c(1)
+truepred <- c(.05, .8)
+type     <- c("l")
 
 pg <- expand.grid(n=npreds, pred=truepred, type=type)
 
 pl <- makePredList(pg)
 
-nsim <- 10
+nsim <- 5000
 
 # Save the datasets as .csv files.
 saveCircGLMDatasets(truens = truens, truekps = truekps, truepreds = pl,
@@ -43,7 +43,7 @@ saveCircGLMDatasets(truens = truens, truekps = truekps, truepreds = pl,
 
 # General MCMC parameters.
 mcmcpar=list(conj_prior = rep(0, 3),
-             Q=200, burnin = 1000, lag = 1,
+             Q=20000, burnin = 1000, lag = 1,
              kappaModeEstBandwith=.05, CIsize=.95,
              r=2, reparametrize=TRUE)
 
@@ -52,7 +52,7 @@ predDesigns <- lapply(1:nrow(pg), function(i){
   c(pl[i],
     list(starting_values=c(0, 1, rep(0, pg$n[i])),
          bt_prior_musd=c("mu"=0, "sd"=1),
-         bt_prior_type=0,
+         bt_prior_type=1,
          bwb=rep(.05, pg$n[i])))
 })
 
@@ -60,7 +60,7 @@ predDesigns <- lapply(1:nrow(pg), function(i){
 simres <- simStudyCircGLM(nsim = nsim, saveLoadEachDgn = TRUE,
                        truens = truens, truekps = truekps,
                        predDesigns = predDesigns, overwrite=FALSE,
-                       seed = 38938, mcmcpar = mcmcpar)
+                       seed = 38944, mcmcpar = mcmcpar)
 
 
 
@@ -69,7 +69,6 @@ simres <- simStudyCircGLM(nsim = nsim, saveLoadEachDgn = TRUE,
 
 
 
-attr(simres[[1]], "full")
 
 
 
