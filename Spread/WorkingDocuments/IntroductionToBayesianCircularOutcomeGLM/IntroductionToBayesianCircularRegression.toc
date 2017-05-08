@@ -1,9 +1,0 @@
-\contentsline {section}{\numberline {1}Introduction}{1}{section.1}
-\contentsline {section}{\numberline {2}Link function}{2}{section.2}
-\contentsline {section}{\numberline {3}MCMC Sampling}{3}{section.3}
-\contentsline {subsection}{\numberline {3.1}Algorithm}{3}{subsection.3.1}
-\contentsline {subsection}{\numberline {3.2}Properties}{4}{subsection.3.2}
-\contentsline {subsection}{\numberline {3.3}Example run}{5}{subsection.3.3}
-\contentsline {section}{\numberline {4}Shape of the likelihood of $\beta $}{7}{section.4}
-\contentsline {section}{\numberline {5}Conditional distribution of $\beta _0$}{16}{section.5}
-\contentsline {section}{\numberline {6}Maximum a posteriori estimates for $\boldsymbol \beta $}{17}{section.6}
