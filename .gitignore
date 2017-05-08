@@ -10,7 +10,6 @@ DataExample/*
 Spread/*
 SimulationResults/*
 
-
 *.csv
 
 *.rda
@@ -47,6 +46,8 @@ SimulationResults/*
 *.rdx
 *.js
 *.gz
+*.Rproj
+
 
 *.Rproj.user
 
