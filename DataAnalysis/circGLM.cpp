@@ -973,8 +973,8 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
   // Obtain the two versions of WAIC as in Gelman's BDA, 3rd ed.
   rowvec WAIC_logofmean = log(mean(exp(ll_each_th_curpars), 0));
   rowvec WAIC_meanoflog = mean(ll_each_th_curpars, 0);
-  double p_WAIC1     = 2 * sum(WAIC_logofmean - WAIC_meanoflog);
 
+  double p_WAIC1     = 2 * sum(WAIC_logofmean - WAIC_meanoflog);
   double p_WAIC2     = accu(var(ll_each_th_curpars, 0, 0));
 
   double WAIC1      = - 2 * (lppd - p_WAIC1);
@@ -1058,16 +1058,7 @@ Rcpp::List circGLMC(vec th, mat X, mat D,
     if (debug) std::cout <<  btSDDBFs(k) << "), ";
   }
 
-
-
-
   if (debug) std::cout << ") " << endl << "(Mu_comp: ";
-
-
-
-
-
-
 
   //// Automatic Bayes Factors for mean comparisons
   int nmu = J + 1;
