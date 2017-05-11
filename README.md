@@ -2,7 +2,7 @@
 
 This is the research archive for Mulder & Klugkist (2017), "Bayesian Estimation and Hypothesis Tests for a Circular GLM". 
 
-This is the research archive only. If your interest is in applying the methods, please use the package [https://github.com/keesmulder/CircGLMBayes](`CircGLMBayes`) instead, as that package is much more user-friendly.
+This is the research archive only. If your interest is in applying the methods, please use the package [`CircGLMBayes`](https://github.com/keesmulder/CircGLMBayes) instead, as that package is much more user-friendly.
 
 ## Article JMP
 
