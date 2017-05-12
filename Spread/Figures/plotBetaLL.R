@@ -7,7 +7,7 @@ require(ggplot2)
 plotTheme <- theme(
   panel.background = element_rect(
     fill = "white"
-    ),
+  ),
   panel.grid.major = element_line(
     colour = "white",
     linetype = "solid"),
@@ -20,46 +20,46 @@ plotTheme <- theme(
     face = "bold")
 )
 
-getdat <- function(fun, res = 100, xl = c(-10, 10), ...) {
-  sq  <- seq(xl[1], xl[2], length.out = res)
-  ysq <- fun(b=sq)
-  data.frame(sq=sq, ysq=ysq)
-}
 
+# Plot the log likelihood as a function of beta.
 plotbeta <- function(th, X, normalPrior=FALSE, res = 100, xl = c(-10, 10),
-                     b0 = pi/2, kp = 1, bt = b, r = 2, mu=0, sd=10) {
+                     b0 = pi/2, kp = 1, r = 2, bt_true = 1, mu=0, sds=10) {
 
-  d <- data.frame(matrix())
 
-  if (!normalPrior) {
-    betall <- Vectorize(function (b) {
-      ll(b0 = b0, kp = kp, bt = b, dt = numeric(0), th = th, X = X, D = matrix(ncol = 0, nrow = nrow(X)), r = r)
-    })
-  } else {
-    betall <- Vectorize(function (b) {
-      ll(b0 = b0, kp = kp, bt = b, dt = numeric(0), th = th, X = X, D = matrix(ncol = 0, nrow = nrow(X)), r = r) +
-        logProbNormal(b, mu, sd)
-    })
-  }
+  # X points at which to evaluate the ll function
+  sq <- seq(xl[1], xl[2], length.out = res)
 
-  d <- getdat(fun=betall, res=res, xl=xl)
-
-  ggplot(aes(x=sq, y=ysq), data=d) +
-    geom_line() +
-    geom_vline(xintercept=d$sq[which.max(d$ysq)], linetype = "dashed") +
-    theme_bw() +
+  p <- ggplot() + theme_bw() +
     ylab(expression(paste("Conditional Log-Likelihood of ", beta))) +
     xlab(expression(beta))
 
+  # Find the ll function to add to the plot.
+  for (i in 1:length(sds)) {
+    if (!normalPrior) {
+      betall <- Vectorize(function(b) {
+        ll(b0 = b0, kp = kp, bt = b, dt = numeric(0), th = th,
+           X = X, D = matrix(ncol = 0, nrow = nrow(X)), r = r)
+      })
+    } else {
+      sdi <- sds[i]
+      betall <- Vectorize(function(b) {
+        ll(b0 = b0, kp = kp, bt = b, dt = numeric(0), th = th,
+           X = X, D = matrix(ncol = 0, nrow = nrow(X)), r = r) +
+          logProbNormal(b, mu, sdi)
+      })
+    }
+
+    # Apply the function to the X sequence
+    btlls <- betall(sq)
+
+    # Add line to plot
+    p <- p +
+      geom_line(data = data.frame(bll = btlls, bt = sq),
+                aes(x = bt, y = bll),
+                linetype = i)
+  }
+
+  p
 }
-
-
-#
-# X  <- as.matrix(-3:3)
-# bt <- 0.8
-# th <- pi/2 + atanlf(bt*X, 2)
-#
-# plotbeta(normalPrior=FALSE, res=100, xl=c(-50, 50), b0=pi/2, kp=1, r=2, th=th, X=X)
-#
 
 

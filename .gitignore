@@ -4,7 +4,12 @@
 /Submissions/
 /Datasets/
 /DataExample/
-/Spread/
+Spread/Poster
+Spread/Slides
+Spread/WorkingDocuments
+Spread/Article
+Spread/RevisionReport.Rmd
+
 /SimulationResults/
 
 *.sav
