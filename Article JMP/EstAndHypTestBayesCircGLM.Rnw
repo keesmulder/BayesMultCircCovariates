@@ -818,11 +818,6 @@ print(xANOVATab,
 \begin{figure}
 <<ANOVAConvergencePlot, fig.width=big.fig.width, fig.height=big.fig.height>>=
 plot(anovaModel, type = "stack", ggTheme = myTheme, labelFormat = "latex") + theme(panel.spacing = unit(0.5, "lines"))
-
-circGLM(th = ANOVApd$Deviation,
-        X  = ANOVApd[, c("Deaf", "Interpreter")], Q = 100000, burnin = 1000,
-        returnPostSample = TRUE, debug = FALSE, loopDebug = FALSE)
-
 @
 \caption{Convergence plots for the ANOVA model.}
 \label{ANOVAConvergencePlot}
